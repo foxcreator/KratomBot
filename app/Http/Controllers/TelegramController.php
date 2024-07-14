@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Admin\SettingsController;
+use App\Models\Member;
 use App\Models\Promocode;
-use App\Models\User;
+use App\Models\Setting;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Mockery\Exception;
 use Telegram\Bot\Api;
@@ -15,11 +16,13 @@ class TelegramController extends Controller
 {
     protected $telegram;
     protected $channelUsername;
+    protected $settings;
 
     public function __construct()
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
-        $this->channelUsername = '@testchannelkratom';
+        $this->channelUsername = $this->makeChannelName();
+        $this->settings = Setting::all()->pluck('value', 'key')->toArray();
     }
 
     public function setWebhook()
@@ -35,8 +38,6 @@ class TelegramController extends Controller
 
         try {
             $update = Telegram::getWebhookUpdates();
-            $data = json_decode($update);
-
 
             // Проверяем, что сообщение существует и является текстовым
             if ($update->isType('callback_query')) {
@@ -71,31 +72,31 @@ class TelegramController extends Controller
 
     private function startCommand($chatId)
     {
+
         $keyboard = [
             [
-                ['text' => 'Предоставить номер телефона', 'request_contact' => true]
+                ['text' => $this->settings['phoneBtn'], 'request_contact' => true]
             ]
         ];
 
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => 'Пожалуйста, предоставьте ваш номер телефона',
+            'text' => $this->settings['helloMessage'],
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true, 'one_time_keyboard' => true])
         ]);
     }
 
     private function handleContact($chatId, $contact)
     {
-        Log::info('Handling contact: ' . json_encode($contact));
-        $user = User::where('telegram_id', $chatId)->first();
-        if ($user) {
+        $member = Member::where('telegram_id', $chatId)->first();
+        if ($member && isset($member->promoCode->code)) {
             Telegram::sendMessage([
                 'chat_id' => $chatId,
-                'text' => "Вы уже зарегестрированы.\n\n <b>Ваш промокод {$user->promoCode->code}</b>",
+                'text' => "Вы уже зарегестрированы.\n\n <b>Ваш промокод {$member->promoCode->code}</b>",
                 'parse_mode' => 'HTML'
             ]);
         } else {
-            User::updateOrCreate(
+            Member::updateOrCreate(
                 ['telegram_id' => $chatId],
                 ['phone' => $contact->phone_number]
             );
@@ -103,7 +104,7 @@ class TelegramController extends Controller
             // Отправляем сообщение о успешной регистрации и предложение подписаться на каналы
             Telegram::sendMessage([
                 'chat_id' => $chatId,
-                'text' => "Спасибо за регистрацию, ваш номер телефона: {$contact->phone_number}. Подпишитесь на наш канал и получите актуальные новости.",
+                'text' => $this->settings['registered'],
             ]);
 
             // Предложение подписаться на каналы
@@ -114,19 +115,22 @@ class TelegramController extends Controller
 
     private function offerSubscription($chatId)
     {
+        $channels = []; // Инициализируем пустой массив для хранения каналов
+
+        foreach (json_decode(Setting::where('key', 'channels')->first()->value) as $channel) {
+            $channels[] = ['text' => $channel->name, 'url' => $channel->url];
+        }
+
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => 'Подпишитесь на наши каналы:',
+            'text' => $this->settings['subscribe'],
             'reply_markup' => json_encode([
-                'inline_keyboard' => [
-                    [['text' => 'Канал 1', 'url' => 'https://t.me/channel1']],
-                    [['text' => 'Канал 2', 'url' => 'https://t.me/channel2']],
-                ]
+                'inline_keyboard' => [$channels]
             ]),
         ]);
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => 'проверить',
+            'text' => 'Проверить',
             'reply_markup' => json_encode([
                 'inline_keyboard' => [[['text' => 'Проверить подписку', 'callback_data' => 'check_subscription']]]
             ])
@@ -138,8 +142,8 @@ class TelegramController extends Controller
         $isSubscribed = $this->isUserSubscribed($chatId);
 
         if ($isSubscribed) {
-            $user = User::where('telegram_id', $chatId)->first();
-            $promoCode = PromoCode::create(['user_id' => $user->id, 'code' => uniqid()]);
+            $member = Member::where('telegram_id', $chatId)->first();
+            $promoCode = PromoCode::create(['member_id' => $member->id, 'code' => uniqid()]);
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
                 'text' => "Спасибо за подписку! Ваш промокод: <b>{$promoCode->code}</b>",
@@ -148,7 +152,7 @@ class TelegramController extends Controller
         } else {
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'Вы не подписались на наш канал. Пожалуйста, подпишитесь и попробуйте снова.'
+                'text' => $this->settings['notSubscribe']
             ]);
         }
     }
@@ -168,6 +172,21 @@ class TelegramController extends Controller
             Log::info($e->getMessage());
             return false;
         }
+    }
+
+    private function makeChannelName()
+    {
+        $channels = json_decode(Setting::where('key', 'channels')->first()->value);
+        $channelName = '';
+        foreach ($channels as $channel) {
+            if ($channel->is_my) {
+                $channelName = $channel->url;
+                break;
+            }
+        }
+
+        return str_replace("https://t.me/", "@", $channelName);
+
     }
 
 }

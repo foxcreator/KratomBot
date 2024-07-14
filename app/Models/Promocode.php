@@ -9,10 +9,10 @@ class Promocode extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'code', 'is_used'];
+    protected $fillable = ['member_id', 'code', 'is_used'];
 
-    public function user()
+    public function member()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Member::class);
     }
 }

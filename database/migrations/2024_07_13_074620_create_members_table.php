@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('promocodes', function (Blueprint $table) {
+        Schema::create('members', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique();
-            $table->foreignId('member_id')->constrained('members');
-            $table->boolean('is_used')->default(false);
+            $table->string('telegram_id');
+            $table->string('phone')->unique();
+            $table->boolean('is_subscribed')->default(false);
             $table->timestamps();
         });
     }
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('promocodes');
+        Schema::dropIfExists('members');
     }
 };
