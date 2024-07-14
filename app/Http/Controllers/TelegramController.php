@@ -27,13 +27,12 @@ class TelegramController extends Controller
 
     public function setWebhook()
     {
-        // URL, на который нужно установить вебхук
-        $url = 'https://adbb-93-127-13-38.ngrok-free.app/telegram/webhook'; // Укажите свой публичный URL, полученный от ngrok
+        $url = 'https://3f35-93-127-13-38.ngrok-free.app/telegram/webhook'; // Укажите свой публичный URL, полученный от ngrok
         $response = $this->telegram->setWebhook(['url' => $url]);
 
         return response()->json($response);
     }
-    public function webhook(Request $request)
+    public function webhook()
     {
 
         try {
@@ -59,7 +58,6 @@ class TelegramController extends Controller
                         case '/start':
                             $this->startCommand($chatId);
                             break;
-                        // Добавьте другие команды и их обработку
                     }
                 }
             }
@@ -101,13 +99,11 @@ class TelegramController extends Controller
                 ['phone' => $contact->phone_number]
             );
 
-            // Отправляем сообщение о успешной регистрации и предложение подписаться на каналы
             Telegram::sendMessage([
                 'chat_id' => $chatId,
                 'text' => $this->settings['registered'],
             ]);
 
-            // Предложение подписаться на каналы
             $this->offerSubscription($chatId);
         }
 
@@ -115,7 +111,7 @@ class TelegramController extends Controller
 
     private function offerSubscription($chatId)
     {
-        $channels = []; // Инициализируем пустой массив для хранения каналов
+        $channels = [];
 
         foreach (json_decode(Setting::where('key', 'channels')->first()->value) as $channel) {
             $channels[] = ['text' => $channel->name, 'url' => $channel->url];
@@ -188,5 +184,4 @@ class TelegramController extends Controller
         return str_replace("https://t.me/", "@", $channelName);
 
     }
-
 }
