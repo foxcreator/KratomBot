@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ApiToken;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 
@@ -33,6 +34,12 @@ class SettingsController extends Controller
         }
 
         return redirect()->back()->with(['status' => 'Настройки обновлены']);
+    }
+
+    public function tokens()
+    {
+        $tokens = ApiToken::all();
+        return view('admin.settings.tokens', compact('tokens'));
     }
 }
 

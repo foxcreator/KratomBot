@@ -24,6 +24,7 @@ class PostbackController extends Controller
     {
         $code = $request->input('code');
         $status = $request->input('is_used');
+        $storeName = $request->attributes->get('store_name');
 
         if (!$code || !$status || !is_bool($status)) {
             return response()->json(['status' => 'error', 'message' => 'No mandatory parameters'], 404);
@@ -33,6 +34,7 @@ class PostbackController extends Controller
 
         if ($promocode) {
             $promocode->is_used = $status;
+            $promocode->store_name = $storeName;
             $promocode->save();
             return response()->json(['status' => 'success', 'message' => 'Promocode status updated'], 200);
         } else {

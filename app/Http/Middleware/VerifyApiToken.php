@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ApiToken;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,9 +18,17 @@ class VerifyApiToken
     {
         $token = $request->header('Authorization');
 
-        if ($token !== 'Bearer ' . env('API_SECRET_TOKEN')) {
+        if (str_starts_with($token, 'Bearer ')) {
+            $token = substr($token, 7);
+        }
+
+        $apiToken = ApiToken::where('token', $token)->first();
+
+        if (!$apiToken) {
             return response()->json(['message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
         }
+
+        $request->attributes->set('store_name', $apiToken->store_name);
 
         return $next($request);
     }

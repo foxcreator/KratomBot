@@ -18,6 +18,7 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth'])->group(function ()
     Route::get('/settings', [\App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/store', [\App\Http\Controllers\Admin\SettingsController::class, 'store'])->name('settings.store');
     Route::post('/settings/delete-channel', [\App\Http\Controllers\Admin\SettingsController::class, 'deleteChannel'])->name('settings.delete.channel');
+    Route::get('/settings/tokens', [\App\Http\Controllers\Admin\SettingsController::class, 'tokens'])->name('settings.tokens');
 });
 
 Auth::routes();

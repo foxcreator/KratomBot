@@ -122,6 +122,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a href="{{ route('admin.settings.tokens') }}" class="nav-link">
+                            <i class="nav-icon fas fa-key text-gray"></i>
+                            <p>Shops tokens</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <form action="{{ route('logout') }}" method="POST">
                             @csrf
                             <button type="submit" class="nav-link btn text-left">
