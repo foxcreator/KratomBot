@@ -14,37 +14,29 @@ use Telegram\Bot\Laravel\Facades\Telegram;
 class TelegramController extends Controller
 {
     protected $telegram;
+    protected $channelUsername;
 
     public function __construct()
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
+        $this->channelUsername = '@testchannelkratom';
     }
 
     public function setWebhook()
     {
         // URL, на который нужно установить вебхук
-        $webhookUrl = 'https://9568-93-127-12-107.ngrok-free.app/telegram/webhook';
+        $url = 'https://adbb-93-127-13-38.ngrok-free.app/telegram/webhook'; // Укажите свой публичный URL, полученный от ngrok
+        $response = $this->telegram->setWebhook(['url' => $url]);
 
-        try {
-            // Устанавливаем вебхук через SDK Telegram
-            $response = $this->telegram->setWebhook(['url' => $webhookUrl]);
-
-            if ($response) {
-                return response()->json(['success' => true, 'message' => 'Webhook успешно установлен']);
-            } else {
-                return response()->json(['success' => false, 'message' => 'Не удалось установить Webhook: ' . $response->getDescription()]);
-            }
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Ошибка при установке вебхука: ' . $e->getMessage()]);
-        }
+        return response()->json($response);
     }
     public function webhook(Request $request)
     {
 
         try {
-
             $update = Telegram::getWebhookUpdates();
             $data = json_decode($update);
+
 
             // Проверяем, что сообщение существует и является текстовым
             if ($update->isType('callback_query')) {
@@ -95,19 +87,29 @@ class TelegramController extends Controller
     private function handleContact($chatId, $contact)
     {
         Log::info('Handling contact: ' . json_encode($contact));
-        $user = User::updateOrCreate(
-            ['telegram_id' => $chatId],
-            ['phone' => $contact->phone_number]
-        );
+        $user = User::where('telegram_id', $chatId)->first();
+        if ($user) {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => "Вы уже зарегестрированы.\n\n <b>Ваш промокод {$user->promoCode->code}</b>",
+                'parse_mode' => 'HTML'
+            ]);
+        } else {
+            User::updateOrCreate(
+                ['telegram_id' => $chatId],
+                ['phone' => $contact->phone_number]
+            );
 
-        // Отправляем сообщение о успешной регистрации и предложение подписаться на каналы
-        Telegram::sendMessage([
-            'chat_id' => $chatId,
-            'text' => "Спасибо за регистрацию, ваш номер телефона: {$contact->phone_number}. Подпишитесь на наш канал и получите актуальные новости.",
-        ]);
+            // Отправляем сообщение о успешной регистрации и предложение подписаться на каналы
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => "Спасибо за регистрацию, ваш номер телефона: {$contact->phone_number}. Подпишитесь на наш канал и получите актуальные новости.",
+            ]);
 
-        // Предложение подписаться на каналы
-        $this->offerSubscription($chatId);
+            // Предложение подписаться на каналы
+            $this->offerSubscription($chatId);
+        }
+
     }
 
     private function offerSubscription($chatId)
@@ -140,7 +142,8 @@ class TelegramController extends Controller
             $promoCode = PromoCode::create(['user_id' => $user->id, 'code' => uniqid()]);
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => "Спасибо за подписку! Ваш промокод: {$promoCode->code}"
+                'text' => "Спасибо за подписку! Ваш промокод: <b>{$promoCode->code}</b>",
+                'parse_mode' => 'HTML'
             ]);
         } else {
             $this->telegram->sendMessage([
@@ -152,8 +155,19 @@ class TelegramController extends Controller
 
     private function isUserSubscribed($chatId)
     {
-        // Логика проверки подписки на канал через Telegram API
-        return true; // или false
+        try {
+            $response = $this->telegram->getChatMember([
+                'chat_id' => $this->channelUsername,
+                'user_id' => $chatId
+            ]);
+
+            $status = $response->status;
+
+            return in_array($status, ['member', 'administrator', 'creator']);
+        } catch (\Exception $e) {
+            Log::info($e->getMessage());
+            return false;
+        }
     }
 
 }

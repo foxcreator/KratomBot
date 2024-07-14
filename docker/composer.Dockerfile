@@ -1,3 +1,3 @@
 FROM composer
 
-WORKDIR /var/www/FlowersShop
+WORKDIR /var/www/TelegramBot_Kratom
