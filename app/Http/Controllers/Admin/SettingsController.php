@@ -10,7 +10,6 @@ class SettingsController extends Controller
 {
     public function index()
     {
-        $this->makeChannelName();
         $settings = Setting::all()->pluck('value', 'key')->toArray();
         $channels = json_decode(Setting::where('key', 'channels')->value('value'), true) ?? [];
 
@@ -34,11 +33,6 @@ class SettingsController extends Controller
         }
 
         return redirect()->back()->with(['status' => 'Настройки обновлены']);
-    }
-
-    public function deleteChannel(Request $request)
-    {
-        dd($request->channelIndex);
     }
 }
 
