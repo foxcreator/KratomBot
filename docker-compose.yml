@@ -10,14 +10,14 @@ services:
         links:
             - fpm
         volumes:
-            - ./:/var/www/FlowersShop
+            - ./:/var/www/TelegramBot_Kratom
     fpm:
         build:
             context: .
             dockerfile: docker/fpm.Dockerfile
         volumes:
-            - ./:/var/www/FlowersShop
-        working_dir: /var/www/FlowersShop
+            - ./:/var/www/TelegramBot_Kratom
+        working_dir: /var/www/TelegramBot_Kratom
     mysql:
         image: mysql:8.0
         ports:
@@ -30,14 +30,14 @@ services:
             context: .
             dockerfile: docker/composer.Dockerfile
         volumes:
-            - ./:/var/www/FlowersShop
+            - ./:/var/www/TelegramBot_Kratom
     node:
         image: node:16
-        working_dir: /var/www/FlowersShop
+        working_dir: /var/www/TelegramBot_Kratom
         ports:
             - 5173:5173
         volumes:
-            - ./:/var/www/FlowersShop
+            - ./:/var/www/TelegramBot_Kratom
 #        user: "502:20"
 #        command: "npm run dev"
 
