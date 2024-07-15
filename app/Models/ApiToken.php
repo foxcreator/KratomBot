@@ -9,5 +9,5 @@ class ApiToken extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['token,', 'store_name'];
+    protected $fillable = ['token', 'store_name'];
 }

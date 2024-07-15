@@ -27,7 +27,7 @@ class TelegramController extends Controller
 
     public function setWebhook()
     {
-        $url = 'https://3f35-93-127-13-38.ngrok-free.app/telegram/webhook'; // Укажите свой публичный URL, полученный от ngrok
+        $url = 'https://5978-93-127-13-38.ngrok-free.app/telegram/webhook'; // Укажите свой публичный URL, полученный от ngrok
         $response = $this->telegram->setWebhook(['url' => $url]);
 
         return response()->json($response);
@@ -64,8 +64,6 @@ class TelegramController extends Controller
         }catch (Exception $exception) {
             Log::error($exception->getMessage());
         }
-
-        // Дополнительные проверки и обработки
     }
 
     private function startCommand($chatId)
@@ -88,9 +86,23 @@ class TelegramController extends Controller
     {
         $member = Member::where('telegram_id', $chatId)->first();
         if ($member && isset($member->promoCode->code)) {
-            Telegram::sendMessage([
+            if ($member->promoCode->is_used) {
+                Telegram::sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "Ви вже використали свій промокод. \nЗалишайтеся з нами, незабаром будуть нові акції)",
+                    'parse_mode' => 'HTML'
+                ]);
+            } else {
+                Telegram::sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "Ви вже зареєстровані.\n<b>Ваш промокод: {$member->promoCode->code}</b>",
+                    'parse_mode' => 'HTML'
+                ]);
+            }
+
+            $this->telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => "Вы уже зарегестрированы.\n\n <b>Ваш промокод {$member->promoCode->code}</b>",
+                'text' => $this->settings['whereUse'] ?? '',
                 'parse_mode' => 'HTML'
             ]);
         } else {
@@ -126,9 +138,9 @@ class TelegramController extends Controller
         ]);
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => 'Проверить',
+            'text' => 'Перевірити',
             'reply_markup' => json_encode([
-                'inline_keyboard' => [[['text' => 'Проверить подписку', 'callback_data' => 'check_subscription']]]
+                'inline_keyboard' => [[['text' => 'Перевірити підписки', 'callback_data' => 'check_subscription']]]
             ])
         ]);
     }
@@ -142,7 +154,12 @@ class TelegramController extends Controller
             $promoCode = PromoCode::create(['member_id' => $member->id, 'code' => uniqid()]);
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => "Спасибо за подписку! Ваш промокод: <b>{$promoCode->code}</b>",
+                'text' => "Вітаємо! Ви виконали всі умови акції! \nВаш промокод: <b>{$promoCode->code}</b>",
+                'parse_mode' => 'HTML'
+            ]);
+            $this->telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => $this->settings['whereUse'] ?? '',
                 'parse_mode' => 'HTML'
             ]);
         } else {

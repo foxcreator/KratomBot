@@ -38,7 +38,7 @@
                                 <td>{{ $member->telegram_id }}</td>
                                 <td>{{ $member->phone }}</td>
                                 <td>{{ $member->promoCode->code }}</td>
-                                @if($member->is_used)
+                                @if($member->promoCode->is_used)
                                     <td class="text-right"><span class="badge bg-success">Used</span></td>
                                 @else
                                     <td class="text-right"><span class="badge bg-danger">No Used</span></td>
