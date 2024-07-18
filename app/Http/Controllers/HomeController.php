@@ -20,6 +20,11 @@ class HomeController extends Controller
         $this->middleware('auth');
     }
 
+    public function index()
+    {
+        return redirect()->route('admin.dashboard');
+    }
+
     /**
      * Show the application dashboard.
      *
@@ -64,12 +69,14 @@ class HomeController extends Controller
             ? Carbon::make($request->input('end_date'))->endOfDay()
             : Carbon::today()->endOfDay();
 
-        $statistics = Promocode::where('is_used', true)
+        $statistics = DB::table('promocodes')
+            ->select('store_name', DB::raw('COUNT(*) as usage_count'))
+            ->where('is_used', true)
             ->whereBetween('updated_at', [$startDate, $endDate])
-            ->groupBy('store_name', DB::raw('DATE(updated_at)'))
-            ->select('store_name', DB::raw('DATE(updated_at) as date'), DB::raw('COUNT(*) as usage_count'))
-            ->orderBy('date')
+            ->groupBy('store_name')
+            ->orderBy('store_name')
             ->get();
+
 
         return view('admin.promocodes.statistics', compact('statistics', 'startDate', 'endDate'));
     }
