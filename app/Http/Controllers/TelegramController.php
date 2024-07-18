@@ -27,7 +27,7 @@ class TelegramController extends Controller
 
     public function setWebhook()
     {
-        $url = 'https://5978-93-127-13-38.ngrok-free.app/telegram/webhook'; // Укажите свой публичный URL, полученный от ngrok
+        $url = env('APP_URL').'/telegram/webhook'; // Укажите свой публичный URL, полученный от ngrok
         $response = $this->telegram->setWebhook(['url' => $url]);
 
         return response()->json($response);
