@@ -15,27 +15,26 @@
             <div class="row">
                 <div class="col-12 col-sm-6 col-md-3">
                     <div class="info-box">
-                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-cog"></i></span>
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-barcode"></i></span>
 
                         <div class="info-box-content">
-                            <span class="info-box-text">Income</span>
+                            <span class="info-box-text">Всего промокодов</span>
                             <span class="info-box-number">
-                  97564
-                  <small>uah</small>
+                  {{ \App\Models\Member::count() }}
                 </span>
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-sm-6 col-md-3">
-                    <div class="info-box mb-3">
-                        <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-thumbs-up"></i></span>
+{{--                <div class="col-12 col-sm-6 col-md-3">--}}
+{{--                    <div class="info-box mb-3">--}}
+{{--                        <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-thumbs-up"></i></span>--}}
 
-                        <div class="info-box-content">
-                            <span class="info-box-text">Likes</span>
-                            <span class="info-box-number">41,410</span>
-                        </div>
-                    </div>
-                </div>
+{{--                        <div class="info-box-content">--}}
+{{--                            <span class="info-box-text">Likes</span>--}}
+{{--                            <span class="info-box-number">41,410</span>--}}
+{{--                        </div>--}}
+{{--                    </div>--}}
+{{--                </div>--}}
 
                 <div class="clearfix hidden-md-up"></div>
 
@@ -44,8 +43,8 @@
                         <span class="info-box-icon bg-success elevation-1"><i class="fas fa-shopping-cart"></i></span>
 
                         <div class="info-box-content">
-                            <span class="info-box-text">Sales</span>
-                            <span class="info-box-number">760</span>
+                            <span class="info-box-text">Использовано промокодов</span>
+                            <span class="info-box-number">{{ \App\Models\Promocode::where('is_used', true)->count() }}</span>
                         </div>
                     </div>
                 </div>
@@ -54,8 +53,10 @@
                         <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-users"></i></span>
 
                         <div class="info-box-content">
-                            <span class="info-box-text">New Members</span>
-                            <span class="info-box-number">2,000</span>
+                            <span class="info-box-text">Новых регистраций</span>
+                            <span class="info-box-number">
+                                {{ \App\Models\Member::count() }}
+                            </span>
                         </div>
                     </div>
                 </div>

@@ -9,7 +9,7 @@ class Promocode extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['member_id', 'code', 'is_used'];
+    protected $fillable = ['member_id', 'code', 'is_used', 'store_name'];
 
     public function member()
     {

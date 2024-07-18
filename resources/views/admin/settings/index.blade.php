@@ -37,6 +37,10 @@
                             <label for="notSubscribe">Сообщение если не прошли проверку подписки</label>
                             <input type="text" name="notSubscribe" class="form-control" id="notSubscribe" placeholder="Введите сообщение" value="{{ $settings['notSubscribe'] ?? '' }}">
                         </div>
+                        <div class="form-group">
+                            <label for="notSubscribe">Сообщение где и как можно использовать промокод</label>
+                            <textarea name="whereUse" rows="5" class="form-control" id="whereUse" placeholder="Введите сообщение">{{ $settings['whereUse'] ?? '' }}</textarea>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <div id="channels-container">

@@ -39,10 +39,10 @@
 </head>
 <body class="hold-transition dark-mode sidebar-mini layout-fixed layout-navbar-fixed layout-footer-fixed">
 <div class="wrapper">
-    @if (session('success'))
+    @if (session('status'))
         <script>
             $(document).ready(function () {
-                toastr.success("{{ session('success') }}");
+                toastr.success("{{ session('status') }}");
             });
         </script>
     @endif
@@ -109,9 +109,9 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="" class="nav-link">
-                            <i class="nav-icon fas fa-user text-info"></i>
-                            <p>Users</p>
+                        <a href="{{ route('admin.promocodes.statistics') }}" class="nav-link">
+                            <i class="nav-icon fas fa-chart-line text-info"></i>
+                            <p>Statistics</p>
                         </a>
                     </li>
                     <li class="nav-header">LABELS</li>
@@ -119,6 +119,12 @@
                         <a href="{{ route('admin.settings') }}" class="nav-link">
                             <i class="nav-icon fas fa-tools text-gray"></i>
                             <p>Settings</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('admin.settings.tokens') }}" class="nav-link">
+                            <i class="nav-icon fas fa-key text-gray"></i>
+                            <p>Shops tokens</p>
                         </a>
                     </li>
                     <li class="nav-item">

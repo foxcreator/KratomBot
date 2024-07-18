@@ -7,7 +7,8 @@
                     <h2 class="card-title">Members</h2>
 
                     <div class="card-tools">
-                        <div class="input-group input-group-sm" style="width: 150px;">
+                        <form action="{{ route('admin.members') }}" method="GET" class="input-group input-group-sm" style="width: 300px;">
+                            @csrf
                             <input type="text" name="table_search" class="form-control float-right"
                                    placeholder="Search">
 
@@ -16,7 +17,7 @@
                                     <i class="fas fa-search"></i>
                                 </button>
                             </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
                 <!-- /.card-header -->
@@ -38,7 +39,7 @@
                                 <td>{{ $member->telegram_id }}</td>
                                 <td>{{ $member->phone }}</td>
                                 <td>{{ $member->promoCode->code }}</td>
-                                @if($member->is_used)
+                                @if($member->promoCode->is_used)
                                     <td class="text-right"><span class="badge bg-success">Used</span></td>
                                 @else
                                     <td class="text-right"><span class="badge bg-danger">No Used</span></td>
@@ -47,6 +48,7 @@
                         @endforeach
                         </tbody>
                     </table>
+                    {{ $members->links() }}
                 </div>
                 <!-- /.card-body -->
             </div>
