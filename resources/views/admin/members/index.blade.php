@@ -4,13 +4,13 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Members</h2>
+                    <h2 class="card-title">Участники</h2>
 
                     <div class="card-tools">
                         <form action="{{ route('admin.members') }}" method="GET" class="input-group input-group-sm" style="width: 300px;">
                             @csrf
                             <input type="text" name="table_search" class="form-control float-right"
-                                   placeholder="Search">
+                                   placeholder="Поиск">
 
                             <div class="input-group-append">
                                 <button type="submit" class="btn btn-default">
@@ -27,9 +27,9 @@
                             <tr>
                                 <th>ID</th>
                                 <th>Telegram ID</th>
-                                <th>Phone</th>
-                                <th>Promo-code</th>
-                                <th class="text-right">Is used promo-code</th>
+                                <th>Телефон</th>
+                                <th>Промокод</th>
+                                <th class="text-right">Использование промокода</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -40,9 +40,9 @@
                                 <td>{{ $member->phone }}</td>
                                 <td>{{ $member->promoCode->code }}</td>
                                 @if($member->promoCode->is_used)
-                                    <td class="text-right"><span class="badge bg-success">Used</span></td>
+                                    <td class="text-right"><span class="badge bg-success">Использован</span></td>
                                 @else
-                                    <td class="text-right"><span class="badge bg-danger">No Used</span></td>
+                                    <td class="text-right"><span class="badge bg-danger">Не использован</span></td>
                                 @endif
                             </tr>
                         @endforeach

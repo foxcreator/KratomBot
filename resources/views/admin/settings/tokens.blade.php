@@ -4,11 +4,11 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Shop tokens</h2>
+                    <h2 class="card-title">Токены магазинов</h2>
 
                     <div class="card-tools">
                         <button type="button" class="btn btn-xs btn-success" data-toggle="modal" data-target="#generatePromoCode">
-                            Generate new token
+                            Сгенерировать новый токен
                         </button>
                     </div>
                 </div>
@@ -17,8 +17,8 @@
                     <table class="table table-hover text-nowrap">
                         <thead>
                         <tr>
-                            <th>Shop Name</th>
-                            <th>Token</th>
+                            <th>Название магазина</th>
+                            <th>Токен</th>
                         </tr>
                         </thead>
                         <tbody>

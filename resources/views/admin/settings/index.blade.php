@@ -5,7 +5,7 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1 class="m-0">Settings</h1>
+                    <h1 class="m-0">Настройки бота</h1>
                 </div>
             </div>
         </div>
@@ -88,7 +88,7 @@
                         <button type="button" class="btn btn-primary" id="add-channel">Добавить канал</button>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-success">Save</button>
+                <button type="submit" class="btn btn-success">Сохранить</button>
             </form>
 
             {{-- Форма для удаления канала --}}

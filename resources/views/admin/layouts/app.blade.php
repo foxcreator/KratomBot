@@ -93,38 +93,38 @@
                     <li class="nav-item">
                         <a href="{{ route('admin.dashboard') }}" class="nav-link">
                             <i class="nav-icon fas fa-tachometer-alt"></i>
-                            <p>Dashboard</p>
+                            <p>Панель информации</p>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ route('admin.members') }}" class="nav-link">
                             <i class="nav-icon fas fa-users text-info"></i>
-                            <p>Members</p>
+                            <p>Участники</p>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ route('admin.promocodes') }}" class="nav-link">
                             <i class="nav-icon fas fa-barcode text-info"></i>
-                            <p>Promocodes</p>
+                            <p>Промокоды</p>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ route('admin.promocodes.statistics') }}" class="nav-link">
                             <i class="nav-icon fas fa-chart-line text-info"></i>
-                            <p>Statistics</p>
+                            <p>Статистика</p>
                         </a>
                     </li>
-                    <li class="nav-header">LABELS</li>
+                    <li class="nav-header">Инструменты</li>
                     <li class="nav-item">
                         <a href="{{ route('admin.settings') }}" class="nav-link">
                             <i class="nav-icon fas fa-tools text-gray"></i>
-                            <p>Settings</p>
+                            <p>Настройки бота</p>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ route('admin.settings.tokens') }}" class="nav-link">
                             <i class="nav-icon fas fa-key text-gray"></i>
-                            <p>Shops tokens</p>
+                            <p>Токены магазинов</p>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -132,7 +132,7 @@
                             @csrf
                             <button type="submit" class="nav-link btn text-left">
                                 <i class="nav-icon fas fa-sign-out-alt text-danger"></i>
-                                <span class="text-danger">Logout</span>
+                                <span class="text-danger">Выйти</span>
                             </button>
                         </form>
                     </li>
