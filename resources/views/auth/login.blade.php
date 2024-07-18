@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="../../plugins/icheck-bootstrap/icheck-bootstrap.min.css">
     <!-- Theme style -->
     <link rel="stylesheet" href="../../dist/css/adminlte.min.css">
+    <link href="{{ asset('/kratomlogo.png') }}" rel="icon">
+
 </head>
 <body class="hold-transition login-page">
 <div class="login-box">

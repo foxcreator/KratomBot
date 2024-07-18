@@ -33,7 +33,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 
-{{--    <link href="{{ asset('/admin-favicon.png') }}" rel="icon">--}}
+    <link href="{{ asset('/kratomlogo.png') }}" rel="icon">
 
 
 </head>
