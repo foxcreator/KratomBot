@@ -7,11 +7,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect()->route('admin.dashboard');
 });
-
-Route::get('/setwebhook', [TelegramController::class, 'setWebhook']);
+Route::get('/api-docs', [\App\Http\Controllers\Api\PostbackController::class, 'apiDocs']);
 Route::post('/telegram/webhook', [TelegramController::class, 'webhook'])->withoutMiddleware(['csrf']);
 
 Route::prefix('/admin')->name('admin.')->middleware(['auth'])->group(function () {
+    Route::get('/setwebhook', [TelegramController::class, 'setWebhook']);
+
     Route::get('/dashboard', [\App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/members', [\App\Http\Controllers\HomeController::class, 'members'])->name('members');
     Route::get('/promocodes', [\App\Http\Controllers\HomeController::class, 'promocodes'])->name('promocodes');

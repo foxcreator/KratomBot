@@ -48,4 +48,10 @@ class PostbackController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Promocode not found'], 404);
         }
     }
+
+
+    public function apiDocs()
+    {
+        return view('apidocs.index');
+    }
 }
