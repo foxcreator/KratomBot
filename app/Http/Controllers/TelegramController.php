@@ -18,13 +18,13 @@ use Telegram\Bot\Laravel\Facades\Telegram;
 class TelegramController extends Controller
 {
     protected $telegram;
-    protected $channelUsername;
+    protected $channelsUsername;
     protected $settings;
 
     public function __construct()
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
-        $this->channelUsername = $this->makeChannelName();
+        $this->channelsUsername = $this->makeChannelName();
         $this->settings = Setting::all()->pluck('value', 'key')->toArray();
     }
 
@@ -44,6 +44,8 @@ class TelegramController extends Controller
                 $chatId = $update->getCallbackQuery()->getMessage()->getChat()->getId();
                 $data = $update->getCallbackQuery()->getData();
 
+                Log::info('callback: '. $update->getCallbackQuery()->getMessage()->getChat()->getId());
+                Log::info('not callback: '. $update->getMessage()->getChat()->getId());
                 if ($data == 'check_subscription') {
                     $this->checkSubscription($chatId);
                 }
@@ -153,6 +155,7 @@ class TelegramController extends Controller
                 $needCheck = false;
             }
         }
+        Log::info($chatId);
 
         $isSubscribed = $this->isUserSubscribed($chatId);
 
@@ -197,14 +200,18 @@ class TelegramController extends Controller
     private function isUserSubscribed($chatId)
     {
         try {
-            $response = $this->telegram->getChatMember([
-                'chat_id' => $this->channelUsername,
-                'user_id' => $chatId
-            ]);
+            foreach ($this->channelsUsername as $channel) {
+                $response = $this->telegram->getChatMember([
+                    'chat_id' => $channel,
+                    'user_id' => $chatId
+                ]);
 
-            $status = $response->status;
+                if (!in_array($response->status, ['member', 'administrator', 'creator'])) {
+                    return false;
+                }
+            }
 
-            return in_array($status, ['member', 'administrator', 'creator']);
+            return true;
         } catch (\Exception $e) {
             Log::info($e->getMessage());
             return false;
@@ -214,15 +221,13 @@ class TelegramController extends Controller
     private function makeChannelName()
     {
         $channels = json_decode(Setting::where('key', 'channels')->first()->value);
-        $channelName = '';
+        $channelNames = [];
         foreach ($channels as $channel) {
             if ($channel->is_my) {
-                $channelName = $channel->url;
-                break;
+                $channelNames[] = str_replace("https://t.me/", "@", $channel->url);
             }
         }
 
-        return str_replace("https://t.me/", "@", $channelName);
-
+        return $channelNames;
     }
 }

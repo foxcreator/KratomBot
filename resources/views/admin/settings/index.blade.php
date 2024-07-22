@@ -68,16 +68,16 @@
                                     </div>
                                     <div class="form-check">
                                         <input type="hidden" name="channels[{{ $index }}][is_my]" value="0">
-                                        <input type="radio"
+                                        <input type="checkbox"
                                                name="channels[{{ $index }}][is_my]"
                                                class="form-check-input my-channel-checkbox"
                                                id="my-channel-{{ $index }}"
                                                value="1"
-                                               @if(old('myChannel') == $index || (empty(old('myChannel')) && !empty($channel['is_my_channel']))) checked @endif
+                                               @if($channel['is_my']) checked @endif
                                         >
                                         <label class="form-check-label" for="my-channel-{{ $index }}">Мой канал</label>
                                     </div>
-                                    @if (!isset($channel['id']))  {{-- Проверяем, что канал является новым --}}
+                                    @if (!isset($channel['id']))
                                     <div class="d-flex justify-content-end">
                                         <button type="button" class="btn btn-xs btn-danger remove-channel">Удалить</button>
                                     </div>
@@ -104,23 +104,23 @@
         document.addEventListener('DOMContentLoaded', function () {
             let channelIndex = {{ count($channels) }};
 
-            function setOnlyOneMyChannel() {
-                const myChannelCheckboxes = document.querySelectorAll('.my-channel-checkbox');
-                myChannelCheckboxes.forEach((checkbox, index) => {
-                    checkbox.addEventListener('change', function () {
-                        if (this.checked) {
-                            // Сброс всех других чекбоксов
-                            myChannelCheckboxes.forEach((cb, idx) => {
-                                if (idx !== index) {
-                                    cb.checked = false;
-                                }
-                            });
-                        }
-                    });
-                });
-            }
+            // function setOnlyOneMyChannel() {
+            //     const myChannelCheckboxes = document.querySelectorAll('.my-channel-checkbox');
+            //     myChannelCheckboxes.forEach((checkbox, index) => {
+            //         checkbox.addEventListener('change', function () {
+            //             if (this.checked) {
+            //                 // Сброс всех других чекбоксов
+            //                 myChannelCheckboxes.forEach((cb, idx) => {
+            //                     if (idx !== index) {
+            //                         cb.checked = false;
+            //                     }
+            //                 });
+            //             }
+            //         });
+            //     });
+            // }
 
-            setOnlyOneMyChannel();
+            // setOnlyOneMyChannel();
 
             document.getElementById('add-channel').addEventListener('click', function () {
                 const container = document.getElementById('channels-container');
@@ -146,8 +146,9 @@
                                placeholder="Введите URL канала">
                     </div>
                     <div class="form-check">
-                        <input type="radio"
-                               name="myChannel"
+                        <input type="hidden" name="channels[${channelIndex}][is_my]" value="0">
+                        <input type="checkbox"
+                               name="channels[${channelIndex}][is_my]"
                                class="form-check-input my-channel-checkbox"
                                id="my-channel-${channelIndex}"
                                value="1">
@@ -163,7 +164,7 @@
                 container.appendChild(newChannel);
                 channelIndex++;
 
-                setOnlyOneMyChannel();
+                // setOnlyOneMyChannel();
             });
 
             document.getElementById('channels-container').addEventListener('click', function (e) {
