@@ -34,11 +34,9 @@ class TelegramController extends Controller
     }
     public function webhook()
     {
-
         try {
             $update = Telegram::getWebhookUpdates();
 
-            // Проверяем, что сообщение существует и является текстовым
             if ($update->isType('callback_query')) {
                 $chatId = $update->getCallbackQuery()->getMessage()->getChat()->getId();
                 $data = $update->getCallbackQuery()->getData();
@@ -68,7 +66,6 @@ class TelegramController extends Controller
 
     private function startCommand($chatId)
     {
-
         $keyboard = [
             [
                 ['text' => $this->settings['phoneBtn'], 'request_contact' => true]
@@ -118,7 +115,6 @@ class TelegramController extends Controller
 
             $this->offerSubscription($chatId);
         }
-
     }
 
     private function offerSubscription($chatId)

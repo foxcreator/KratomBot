@@ -67,6 +67,7 @@
                                         >
                                     </div>
                                     <div class="form-check">
+                                        <input type="hidden" name="channels[{{ $index }}][is_my]" value="0">
                                         <input type="radio"
                                                name="channels[{{ $index }}][is_my]"
                                                class="form-check-input my-channel-checkbox"
