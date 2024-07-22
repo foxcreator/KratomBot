@@ -43,7 +43,7 @@
                                 @else
                                     <td>Промокод не получен</td>
                                 @endif
-                                @if($member->promoCode->is_used)
+                                @if(isset($member->promocode) && $member->promoCode->is_used)
                                     <td class="text-right"><span class="badge bg-success">Использован</span></td>
                                 @else
                                     <td class="text-right"><span class="badge bg-danger">Не использован</span></td>
