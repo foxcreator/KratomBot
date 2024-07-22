@@ -143,7 +143,7 @@ class TelegramController extends Controller
 
     private function checkSubscription($chatId)
     {
-
+        $needCheck = true;
         foreach (json_decode($this->settings['channels']) as $channel) {
             if ($channel->is_my === false) {
                 $needCheck = false;
