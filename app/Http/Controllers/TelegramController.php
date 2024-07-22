@@ -8,8 +8,11 @@ use App\Models\Promocode;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Mockery\Exception;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 use Telegram\Bot\Api;
+use Telegram\Bot\FileUpload\InputFile;
 use Telegram\Bot\Laravel\Facades\Telegram;
 
 class TelegramController extends Controller
@@ -90,9 +93,10 @@ class TelegramController extends Controller
                     'parse_mode' => 'HTML'
                 ]);
             } else {
-                Telegram::sendMessage([
+                $this->telegram->sendPhoto([
                     'chat_id' => $chatId,
-                    'text' => "Ви вже зареєстровані.\n<b>Ваш промокод: {$member->promoCode->code}</b>",
+                    'photo' => InputFile::create($member->promoCode->barcode, $member->promoCode->code . '.png'),
+                    'caption' => "Ви вже зареєстровані! \nВаш промокод: <b>{$member->promoCode->code}</b>",
                     'parse_mode' => 'HTML'
                 ]);
             }
@@ -155,16 +159,33 @@ class TelegramController extends Controller
         if ($isSubscribed || !$needCheck) {
             $member = Member::where('telegram_id', $chatId)->first();
             $promoCode = PromoCode::create(['member_id' => $member->id, 'code' => uniqid()]);
-            $this->telegram->sendMessage([
+
+            $generator = new BarcodeGeneratorPNG();
+            $barcode = $generator->getBarcode($promoCode->code, $generator::TYPE_CODE_128);
+
+            // Сохранение штрихкода в файл
+            $barcodePath = 'barcodes/' . $promoCode->code . '.png';
+            Storage::put($barcodePath, $barcode);
+
+            // Получение URL для сохраненного штрихкода
+            $barcodeFullPath = Storage::path($barcodePath);
+
+            // Отправка штрихкода в Telegram
+            $this->telegram->sendPhoto([
                 'chat_id' => $chatId,
-                'text' => "Вітаємо! Ви виконали всі умови акції! \nВаш промокод: <b>{$promoCode->code}</b>",
+                'photo' => InputFile::create($barcodeFullPath, $promoCode->code . '.png'),
+                'caption' => "Вітаємо! Ви виконали всі умови акції! \nВаш промокод: <b>{$promoCode->code}</b>",
                 'parse_mode' => 'HTML'
             ]);
+
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
                 'text' => $this->settings['whereUse'] ?? '',
                 'parse_mode' => 'HTML'
             ]);
+
+            $promoCode->barcode = $barcodeFullPath;
+            $promoCode->save();
         } else {
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
