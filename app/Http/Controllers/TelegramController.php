@@ -145,7 +145,7 @@ class TelegramController extends Controller
     {
         $needCheck = true;
         foreach (json_decode($this->settings['channels']) as $channel) {
-            if ($channel->is_my === false) {
+            if (!$channel->is_my) {
                 $needCheck = false;
             }
         }
