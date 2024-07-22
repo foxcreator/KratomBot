@@ -143,9 +143,16 @@ class TelegramController extends Controller
 
     private function checkSubscription($chatId)
     {
+
+        foreach ($this->settings['channels'] as $channel) {
+            if ($channel['is_my'] === false) {
+                $needCheck = false;
+            }
+        }
+
         $isSubscribed = $this->isUserSubscribed($chatId);
 
-        if ($isSubscribed) {
+        if ($isSubscribed || !$needCheck) {
             $member = Member::where('telegram_id', $chatId)->first();
             $promoCode = PromoCode::create(['member_id' => $member->id, 'code' => uniqid()]);
             $this->telegram->sendMessage([
