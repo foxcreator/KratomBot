@@ -44,10 +44,12 @@ class TelegramController extends Controller
                 $chatId = $update->getCallbackQuery()->getMessage()->getChat()->getId();
                 $data = $update->getCallbackQuery()->getData();
 
-                Log::info('callback: '. $update->getCallbackQuery()->getMessage()->getChat()->getId());
-                Log::info('not callback: '. $update->getMessage()->getChat()->getId());
                 if ($data == 'check_subscription') {
                     $this->checkSubscription($chatId);
+                }
+
+                if ($data == 'activate_promocode') {
+                    $this->activatePromocode($chatId);
                 }
             } elseif ($update->isType('message')) {
                 $chatId = $update->getMessage()->getChat()->getId();
@@ -98,16 +100,10 @@ class TelegramController extends Controller
                 $this->telegram->sendPhoto([
                     'chat_id' => $chatId,
                     'photo' => InputFile::create($member->promoCode->barcode, $member->promoCode->code . '.png'),
-                    'caption' => "Ви вже зареєстровані! \nВаш промокод: <b>{$member->promoCode->code}</b>",
+                    'caption' => "Ви вже зареєстровані! \nВаш промокод: <b>{$member->promoCode->code}</b> \nПромокод буде дійсний протягом 10 хвилин після активації",
                     'parse_mode' => 'HTML'
                 ]);
             }
-
-            $this->telegram->sendMessage([
-                'chat_id' => $chatId,
-                'text' => $this->settings['whereUse'] ?? '',
-                'parse_mode' => 'HTML'
-            ]);
         } else {
             Member::updateOrCreate(
                 ['telegram_id' => $chatId],
@@ -155,30 +151,16 @@ class TelegramController extends Controller
                 $needCheck = false;
             }
         }
-        Log::info($chatId);
 
         $isSubscribed = $this->isUserSubscribed($chatId);
 
         if ($isSubscribed || !$needCheck) {
-            $member = Member::where('telegram_id', $chatId)->first();
-            $promoCode = PromoCode::create(['member_id' => $member->id, 'code' => uniqid()]);
-
-            $generator = new BarcodeGeneratorPNG();
-            $barcode = $generator->getBarcode($promoCode->code, $generator::TYPE_CODE_128);
-
-            // Сохранение штрихкода в файл
-            $barcodePath = 'barcodes/' . $promoCode->code . '.png';
-            Storage::put($barcodePath, $barcode);
-
-            // Получение URL для сохраненного штрихкода
-            $barcodeFullPath = Storage::path($barcodePath);
-
-            // Отправка штрихкода в Telegram
-            $this->telegram->sendPhoto([
+            $this->telegram->sendMessage([
                 'chat_id' => $chatId,
-                'photo' => InputFile::create($barcodeFullPath, $promoCode->code . '.png'),
-                'caption' => "Вітаємо! Ви виконали всі умови акції! \nВаш промокод: <b>{$promoCode->code}</b>",
-                'parse_mode' => 'HTML'
+                'text' => $this->settings['activate'],
+                'reply_markup' => json_encode([
+                    'inline_keyboard' => [[['text' => 'Активувати Промокод', 'callback_data' => 'activate_promocode']]]
+                ])
             ]);
 
             $this->telegram->sendMessage([
@@ -186,15 +168,39 @@ class TelegramController extends Controller
                 'text' => $this->settings['whereUse'] ?? '',
                 'parse_mode' => 'HTML'
             ]);
-
-            $promoCode->barcode = $barcodeFullPath;
-            $promoCode->save();
         } else {
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
                 'text' => $this->settings['notSubscribe']
             ]);
         }
+    }
+
+    private function activatePromocode($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $promoCode = PromoCode::create(['member_id' => $member->id, 'code' => uniqid()]);
+
+        $generator = new BarcodeGeneratorPNG();
+        $barcode = $generator->getBarcode($promoCode->code, $generator::TYPE_CODE_128);
+
+        // Сохранение штрихкода в файл
+        $barcodePath = 'barcodes/' . $promoCode->code . '.png';
+        Storage::put($barcodePath, $barcode);
+
+        // Получение URL для сохраненного штрихкода
+        $barcodeFullPath = Storage::path($barcodePath);
+
+        // Отправка штрихкода в Telegram
+        $this->telegram->sendPhoto([
+            'chat_id' => $chatId,
+            'photo' => InputFile::create($barcodeFullPath, $promoCode->code . '.png'),
+            'caption' => "Ваш промокод: <b>{$promoCode->code}</b> \nПромокод буде дійсний протягом 10 хвилин після активації",
+            'parse_mode' => 'HTML',
+        ]);
+
+        $promoCode->barcode = $barcodeFullPath;
+        $promoCode->save();
     }
 
     private function isUserSubscribed($chatId)
