@@ -161,8 +161,6 @@ class TelegramController extends Controller
 
         $isSubscribed = $this->isUserSubscribed($chatId);
 
-        Log::info("needCheck: " . ($needCheck ? 'true' : 'false'));
-        Log::info("isSubscribed: " . ($isSubscribed ? 'true' : 'false'));
         if ($isSubscribed && !$needCheck) {
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
