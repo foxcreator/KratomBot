@@ -127,10 +127,10 @@ class TelegramController extends Controller
 
         foreach (json_decode(Setting::where('key', 'channels')->first()->value) as $channel) {
             if (!empty($channel->name) && !empty($channel->url)) {
-                $channels[] = [
+                $channels[] = [[
                     'text' => (string) $channel->name,
                     'url' => (string) $channel->url
-                ];
+                ]];
             }
         }
 
@@ -138,7 +138,7 @@ class TelegramController extends Controller
             'chat_id' => $chatId,
             'text' => $this->settings['subscribe'],
             'reply_markup' => json_encode([
-                'inline_keyboard' => [$channels]
+                'inline_keyboard' => $channels
             ]),
         ]);
         Telegram::sendMessage([
