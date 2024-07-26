@@ -3,9 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Models\Promocode;
+use App\Models\ScheduleDeleteMessages;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-
+use Telegram\Bot\Api;
 class CheckPromoCodes extends Command
 {
     /**
@@ -27,6 +28,8 @@ class CheckPromoCodes extends Command
      */
     public function handle()
     {
+        $telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
+        $messages = ScheduleDeleteMessages::where('delete_at', '<', now())->get();
         $promoCodes = PromoCode::where('created_at', '<', Carbon::now()->subMinutes(10))->get();
 
         foreach ($promoCodes as $promoCode) {
@@ -35,6 +38,14 @@ class CheckPromoCodes extends Command
             ]);
 
             $this->info("Promo code {$promoCode->code} has been updated.");
+        }
+
+        foreach ($messages as $message) {
+            $telegram->deleteMessage([
+                'chat_id' => $message->chat_id,
+                'message_id' => $message->message_id,
+            ]);
+            $message->delete();
         }
 
         return 0;

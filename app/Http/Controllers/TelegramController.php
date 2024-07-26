@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Admin\SettingsController;
+use App\Jobs\DeletePromocodeMessage;
 use App\Models\Member;
 use App\Models\Promocode;
+use App\Models\ScheduleDeleteMessages;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -197,11 +199,19 @@ class TelegramController extends Controller
         $barcodeFullPath = Storage::path($barcodePath);
 
         // Отправка штрихкода в Telegram
-        $this->telegram->sendPhoto([
+        $response = $this->telegram->sendPhoto([
             'chat_id' => $chatId,
             'photo' => InputFile::create($barcodeFullPath, $promoCode->code . '.png'),
             'caption' => "Ваш промокод: <b>{$promoCode->code}</b> \nПромокод буде дійсний протягом 10 хвилин після активації",
             'parse_mode' => 'HTML',
+        ]);
+
+        $messageId = $response->getMessageId();
+
+        ScheduleDeleteMessages::create([
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'delete_at' => now()->addMinutes(10),
         ]);
 
         $promoCode->barcode = $barcodeFullPath;
