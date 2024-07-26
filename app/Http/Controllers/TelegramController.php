@@ -124,7 +124,12 @@ class TelegramController extends Controller
         $channels = [];
 
         foreach (json_decode(Setting::where('key', 'channels')->first()->value) as $channel) {
-            $channels[] = ['text' => $channel->name, 'url' => $channel->url];
+            if (!empty($channel->name) && !empty($channel->url)) {
+                $channels[] = [
+                    'text' => (string) $channel->name,
+                    'url' => (string) $channel->url
+                ];
+            }
         }
 
         Telegram::sendMessage([
