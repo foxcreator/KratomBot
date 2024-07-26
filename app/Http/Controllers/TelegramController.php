@@ -161,7 +161,9 @@ class TelegramController extends Controller
 
         $isSubscribed = $this->isUserSubscribed($chatId);
 
-        if ($isSubscribed || !$needCheck) {
+        Log::info("needCheck: " . ($needCheck ? 'true' : 'false'));
+        Log::info("isSubscribed: " . ($isSubscribed ? 'true' : 'false'));
+        if ($isSubscribed && !$needCheck) {
             $this->telegram->sendMessage([
                 'chat_id' => $chatId,
                 'text' => $this->settings['activate'],
@@ -227,17 +229,19 @@ class TelegramController extends Controller
                     'user_id' => $chatId
                 ]);
 
-                if (!in_array($response->status, ['member', 'administrator', 'creator'])) {
+                $status = $response->status;
+                if (!in_array($status, ['member', 'administrator', 'creator'])) {
                     return false;
                 }
             }
 
             return true;
         } catch (\Exception $e) {
-            Log::info($e->getMessage());
+            Log::info("Exception caught: " . $e->getMessage());
             return false;
         }
     }
+
 
     private function makeChannelName()
     {
