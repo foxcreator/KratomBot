@@ -46,7 +46,14 @@ class CheckPromoCodes extends Command
                 'message_id' => $message->message_id,
             ]);
             $message->delete();
+
+            $telegram->sendMessage([
+                'chat_id' => $message->chat_id,
+                'text' => 'Термін дії промокоду минув',
+            ]);
         }
+
+
 
         return 0;
     }
