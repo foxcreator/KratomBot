@@ -45,13 +45,19 @@ class TelegramController extends Controller
             if ($update->isType('callback_query')) {
                 $chatId = $update->getCallbackQuery()->getMessage()->getChat()->getId();
                 $data = $update->getCallbackQuery()->getData();
+                $member = Member::where('telegram_id', $chatId)->first();
 
                 if ($data == 'check_subscription') {
                     $this->checkSubscription($chatId);
                 }
 
-                if ($data == 'activate_promocode') {
+                if ($data == 'activate_promocode' && !$member->promocode) {
                     $this->activatePromocode($chatId);
+                } elseif($member->promocode) {
+                    Telegram::sendMessage([
+                        'chat_id' => $chatId,
+                        'text' => 'Промокод вже активований'
+                    ]);
                 }
             } elseif ($update->isType('message')) {
                 $chatId = $update->getMessage()->getChat()->getId();
