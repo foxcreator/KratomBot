@@ -30,7 +30,7 @@ class CheckPromoCodes extends Command
     {
         $telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
         $messages = ScheduleDeleteMessages::where('delete_at', '<', now())->get();
-        $promoCodes = PromoCode::where('created_at', '<', Carbon::now()->subMinutes(10))->get();
+        $promoCodes = PromoCode::where('created_at', '<', Carbon::now()->subMinutes(1))->get();
 
         foreach ($promoCodes as $promoCode) {
             $promoCode->update([
@@ -45,12 +45,13 @@ class CheckPromoCodes extends Command
                 'chat_id' => $message->chat_id,
                 'message_id' => $message->message_id,
             ]);
-            $message->delete();
 
             $telegram->sendMessage([
                 'chat_id' => $message->chat_id,
                 'text' => 'Термін дії промокоду минув',
             ]);
+            $message->delete();
+
         }
 
 
