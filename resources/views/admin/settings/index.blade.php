@@ -25,10 +25,10 @@
                             <label for="phone-btn">Текст кнопки поделится телефоном</label>
                             <input type="text" name="phoneBtn" class="form-control" id="phone-btn" placeholder="Введите текст кнопки" value="{{ $settings['phoneBtn'] ?? '' }}">
                         </div>
-                        <div class="form-group">
-                            <label for="registered">Сообщение об успешной регистрации</label>
-                            <input type="text" name="registered" class="form-control" id="registered" placeholder="Введите сообщение " value="{{ $settings['registered'] ?? '' }}">
-                        </div>
+{{--                        <div class="form-group">--}}
+{{--                            <label for="registered">Сообщение об успешной регистрации</label>--}}
+{{--                            <input type="text" name="registered" class="form-control" id="registered" placeholder="Введите сообщение " value="{{ $settings['registered'] ?? '' }}">--}}
+{{--                        </div>--}}
                         <div class="form-group">
                             <label for="subscribe">Сообщение подпишитесь на каналы</label>
                             <input type="text" name="subscribe" class="form-control" id="subscribe" placeholder="Введите сообщение " value="{{ $settings['subscribe'] ?? '' }}">

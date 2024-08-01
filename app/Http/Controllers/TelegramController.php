@@ -112,11 +112,6 @@ class TelegramController extends Controller
                 ['phone' => $contact->phone_number]
             );
 
-            Telegram::sendMessage([
-                'chat_id' => $chatId,
-                'text' => $this->settings['registered'],
-            ]);
-
             $this->offerSubscription($chatId);
         }
     }
@@ -141,11 +136,13 @@ class TelegramController extends Controller
                 'inline_keyboard' => $channels
             ]),
         ]);
+
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => 'Перевірити',
+            'text' => "Будь ласка, підтвердіть виконання всіх умов:\n\nНатисніть кнопку \"Перевірити\" для автоматичної перевірки.\nЯкщо ви виконали всі кроки, ви отримаєте свій промокод! 🎉",
+            'parse_mode' => 'HTML',
             'reply_markup' => json_encode([
-                'inline_keyboard' => [[['text' => 'Перевірити підписки', 'callback_data' => 'check_subscription']]]
+                'inline_keyboard' => [[['text' => 'Перевірити', 'callback_data' => 'check_subscription']]]
             ])
         ]);
     }
