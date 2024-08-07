@@ -128,7 +128,7 @@
     <section class="section section-lg text-center" id="video" data-type="anchor">
         <div class="container">
             <h3 class="wow-outer"><span class="wow slideInDown">Відео про продукт</span></h3>
-            <div class="row row-50">
+            <div class="row row-50 justify-content-center">
                 <div class="col-md-6 wow-outer">
                     <!-- Post Modern-->
                     <article class="post-modern wow slideInLeft">
@@ -147,17 +147,17 @@
                         </p>
                     </article>
                 </div>
-                <div class="col-md-6 wow-outer">
-                    <!-- Post Modern-->
-                    <article class="post-modern wow slideInLeft"><a class="post-modern-media" href="#">
-                            <iframe src="https://www.youtube.com/embed/JNJgaE2EBjw" title="Кратом від GoldProduct vs Чай Кратом: Розкриваємо усі секрети!" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-                        </a>
-                        <h4 class="post-modern-title"><a href="#">Як ми робимо напій</a></h4>
-                        <p>
-                            Для виготовлення ми використувуємо сучасні технології та знання багатех науковців....
-                        </p>
-                    </article>
-                </div>
+{{--                <div class="col-md-6 wow-outer">--}}
+{{--                    <!-- Post Modern-->--}}
+{{--                    <article class="post-modern wow slideInLeft"><a class="post-modern-media" href="#">--}}
+{{--                            <iframe src="https://www.youtube.com/embed/JNJgaE2EBjw" title="Кратом від GoldProduct vs Чай Кратом: Розкриваємо усі секрети!" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>--}}
+{{--                        </a>--}}
+{{--                        <h4 class="post-modern-title"><a href="#">Як ми робимо напій</a></h4>--}}
+{{--                        <p>--}}
+{{--                            Для виготовлення ми використувуємо сучасні технології та знання багатех науковців....--}}
+{{--                        </p>--}}
+{{--                    </article>--}}
+{{--                </div>--}}
             </div>
             <div class="wow-outer button-outer">
                 <a class="button button-primary-outline button-winona wow slideInUp" href="https://www.youtube.com/@Kratomlab" target="_blank">
