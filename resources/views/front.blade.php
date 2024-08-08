@@ -212,7 +212,7 @@
             <div class="container">
                 <div class="row row-50">
                     <div class="col-lg-8">
-                        <h4>Quick Links</h4>
+                        <h4>Посилання</h4>
                         <hr class="offset-right-1">
                         <div class="row row-20">
                             <div class="col-6 col-sm-3">
@@ -237,6 +237,8 @@
                             <li><a href="https://www.youtube.com/@Kratomlab">Youtube</a></li>
                             <li><a href="https://www.instagram.com/kratomlab_ua">Instagram</a></li>
                             <li><a href="https://t.me/kratomlab">Telegram</a></li>
+                            <li><a href="#">goldproduct@ukr.net</a></li>
+
                         </ul>
                     </div>
                 </div>
