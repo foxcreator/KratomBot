@@ -198,7 +198,7 @@
     </section>
 
     <!-- Wide CTA-->
-    <section class="section section-md bg-primary-gradient text-center">
+    <section id="contact-us" class="section section-md bg-primary-gradient text-center">
         <div class="container">
             <div class="box-cta-1">
                 <h3 class="wow-outer"><span class="wow slideInRight">Для замовлення напою  <span class="font-weight-bold">Kratom</span></span></h3>
