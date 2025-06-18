@@ -5,20 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Member extends Model
+class Product extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'phone',
-        'telegram_id',
-        'is_subscribed',
-        'username'
+        'name', 'short_description', 'description', 'price', 'image_url', 'brand_id'
     ];
 
-    public function promocode()
+    public function brand()
     {
-        return $this->hasOne(Promocode::class);
+        return $this->belongsTo(Brand::class);
     }
 
     public function orders()

@@ -27,9 +27,7 @@
                             <tr>
                                 <th>ID</th>
                                 <th>Telegram ID</th>
-                                <th>Телефон</th>
-                                <th>Промокод</th>
-                                <th class="text-right">Использование промокода</th>
+                                <th>Nickname</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -37,17 +35,7 @@
                             <tr>
                                 <td>{{ $member->id }}</td>
                                 <td>{{ $member->telegram_id }}</td>
-                                <td>{{ $member->phone }}</td>
-                                @if(isset($member->promocode))
-                                    <td>{{ $member->promoCode->code }}</td>
-                                @else
-                                    <td>Промокод не получен</td>
-                                @endif
-                                @if(isset($member->promocode) && $member->promoCode->is_used)
-                                    <td class="text-right"><span class="badge bg-success">Использован</span></td>
-                                @else
-                                    <td class="text-right"><span class="badge bg-danger">Не использован</span></td>
-                                @endif
+                                <td>{{ $member->username }}</td>
                             </tr>
                         @endforeach
                         </tbody>

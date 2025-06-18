@@ -103,15 +103,15 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ route('admin.promocodes') }}" class="nav-link">
-                            <i class="nav-icon fas fa-barcode text-info"></i>
-                            <p>Промокоды</p>
+                        <a href="{{ route('admin.products.index') }}" class="nav-link">
+                            <i class="nav-icon fas fa-users text-info"></i>
+                            <p>Продукти</p>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ route('admin.promocodes.statistics') }}" class="nav-link">
-                            <i class="nav-icon fas fa-chart-line text-info"></i>
-                            <p>Статистика</p>
+                        <a href="{{ route('admin.brands.index') }}" class="nav-link">
+                            <i class="nav-icon fas fa-users text-info"></i>
+                            <p>Бренди</p>
                         </a>
                     </li>
                     <li class="nav-header">Инструменты</li>
@@ -119,12 +119,6 @@
                         <a href="{{ route('admin.settings') }}" class="nav-link">
                             <i class="nav-icon fas fa-tools text-gray"></i>
                             <p>Настройки бота</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('admin.settings.tokens') }}" class="nav-link">
-                            <i class="nav-icon fas fa-key text-gray"></i>
-                            <p>Токены магазинов</p>
                         </a>
                     </li>
                     <li class="nav-item">

@@ -20,6 +20,8 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth'])->group(function ()
     Route::post('/settings/delete-channel', [\App\Http\Controllers\Admin\SettingsController::class, 'deleteChannel'])->name('settings.delete.channel');
     Route::get('/settings/tokens', [\App\Http\Controllers\Admin\SettingsController::class, 'tokens'])->name('settings.tokens');
     Route::post('/settings/tokens/generate', [\App\Http\Controllers\Admin\SettingsController::class, 'saveShopToken'])->name('settings.tokens.generate');
+    Route::resource('brands', App\Http\Controllers\Admin\BrandController::class)->except(['show']);
+    Route::resource('products', App\Http\Controllers\Admin\ProductController::class)->except(['show']);
 });
 
 Auth::routes();

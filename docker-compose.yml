@@ -24,20 +24,12 @@ services:
             - 33061:3306
         environment:
             - MYSQL_ROOT_PASSWORD=root
-            - MYSQL_DATABASE=flowershop
+            - MYSQL_DATABASE=kratombot
     composer:
         build:
             context: .
             dockerfile: docker/composer.Dockerfile
         volumes:
             - ./:/var/www/TelegramBot_Kratom
-    node:
-        image: node:16
-        working_dir: /var/www/TelegramBot_Kratom
-        ports:
-            - 5173:5173
-        volumes:
-            - ./:/var/www/TelegramBot_Kratom
-#        user: "502:20"
-#        command: "npm run dev"
+
 
