@@ -11,6 +11,7 @@ use Mockery\Exception;
 use Telegram\Bot\Api;
 use Telegram\Bot\Laravel\Facades\Telegram;
 use App\Models\Order;
+use App\Models\Brand;
 
 class TelegramController extends Controller
 {
@@ -263,14 +264,19 @@ class TelegramController extends Controller
 
     private function sendAnalogsMenu($chatId)
     {
-        $keyboard = [
-            [
-                ['text' => '🌫 НРС', 'callback_data' => 'analogs_nps'],
-            ],
-            [
+        $analogs = Brand::all();
+        foreach ($analogs as $analog) {
+            if ($analog->name == 'Moringa') {
+                continue;
+            }
+            
+            $keyboard[] = [
+                ['text' => $analog->name, 'callback_data' => 'analogs_' . $analog->id . '_' . $analog->name]
+            ];
+        }
+        $keyboard[] = [
                 ['text' => '⬅️ Назад', 'callback_data' => 'back_to_catalog'],
-            ],
-        ];
+            ];
         Telegram::sendMessage([
             'chat_id' => $chatId,
             'text' => '🧪 Аналоги:',

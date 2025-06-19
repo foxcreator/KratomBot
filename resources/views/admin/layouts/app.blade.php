@@ -93,13 +93,13 @@
                     <li class="nav-item">
                         <a href="{{ route('admin.dashboard') }}" class="nav-link">
                             <i class="nav-icon fas fa-tachometer-alt"></i>
-                            <p>Панель информации</p>
+                            <p>Панель інформації</p>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ route('admin.members') }}" class="nav-link">
                             <i class="nav-icon fas fa-users text-info"></i>
-                            <p>Участники</p>
+                            <p>Користувачі</p>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -112,6 +112,12 @@
                         <a href="{{ route('admin.brands.index') }}" class="nav-link">
                             <i class="nav-icon fas fa-users text-info"></i>
                             <p>Бренди</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('admin.orders.index') }}" class="nav-link">
+                            <i class="nav-icon fas fa-users text-info"></i>
+                            <p>Замовлення</p>
                         </a>
                     </li>
                     <li class="nav-header">Инструменты</li>
