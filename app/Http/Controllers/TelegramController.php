@@ -49,7 +49,7 @@ class TelegramController extends Controller
 
                 Member::updateOrCreate(
                     ['telegram_id' => $chatId],
-                    ['username' => $username, 'phone' => '']
+                    ['username' => $username, 'phone' => random_int(2, 10000000)]
                 );
 
                 if ($text === '/start') {

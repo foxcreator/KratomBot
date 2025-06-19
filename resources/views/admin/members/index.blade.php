@@ -28,6 +28,7 @@
                                 <th>ID</th>
                                 <th>Telegram ID</th>
                                 <th>Nickname</th>
+                                <th>Дії</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -48,4 +49,5 @@
         </div>
     </div>
 
+   
 @endsection

@@ -15,12 +15,12 @@
             <div class="row">
                 <div class="col-12 col-sm-6 col-md-3">
                     <div class="info-box">
-                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-barcode"></i></span>
+                        <span class="info-box-icon bg-info elevation-1"><i class="fas fa-shopping-cart"></i></span>
 
                         <div class="info-box-content">
-                            <span class="info-box-text">Всего промокодов</span>
+                            <span class="info-box-text">Всього замовлень</span>
                             <span class="info-box-number">
-                  {{ \App\Models\Member::count() }}
+                  {{ \App\Models\Order::count() }}
                 </span>
                         </div>
                     </div>
@@ -43,8 +43,8 @@
                         <span class="info-box-icon bg-success elevation-1"><i class="fas fa-shopping-cart"></i></span>
 
                         <div class="info-box-content">
-                            <span class="info-box-text">Использовано промокодов</span>
-                            <span class="info-box-number">{{ \App\Models\Promocode::where('is_used', true)->count() }}</span>
+                            <span class="info-box-text">Нових замовлень</span>
+                            <span class="info-box-number">{{ \App\Models\Order::where('status', 'new')->count() }}</span>
                         </div>
                     </div>
                 </div>
@@ -53,7 +53,7 @@
                         <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-users"></i></span>
 
                         <div class="info-box-content">
-                            <span class="info-box-text">Новых регистраций</span>
+                            <span class="info-box-text">Всього користувачів</span>
                             <span class="info-box-number">
                                 {{ \App\Models\Member::count() }}
                             </span>

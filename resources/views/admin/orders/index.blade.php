@@ -30,7 +30,7 @@
                                 <th>Назва продукту</th>
                                 <th>Нікнейм користувача</th>
                                 <th>Статус</th>
-                                <th>Дії</th>
+                                <th class="text-right">Дії</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -41,13 +41,22 @@
                                 <td>{{ $order->product->name }}</td>
                                 <td>{{ $order->member->username }}</td>
                                 <td>{{ $order->status }}</td>
-                                <td>
-                                    <form action="{{ route('admin.orders.change-status', $order->id) }}" method="POST">
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-edit"></i>
-                                            Змінити статус
-                                        </button>
-                                    </form>
+                                <td class="d-flex justify-content-end">
+                                    @if($order->status == 'new')
+                                        <form action="{{ route('admin.orders.change-status', $order->id) }}" method="POST">
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-edit"></i>
+                                                Змінити статус
+                                            </button>
+                                        </form>
+                                    @endif
+                                    <button type="button" class="btn btn-sm btn-info send-message-btn ml-2"
+                                        data-member-id="{{ $order->member->id }}"
+                                        data-username="{{ $order->member->username }}"
+                                        data-telegram-id="{{ $order->member->telegram_id }}"
+                                        data-toggle="modal" data-target="#sendMessageModal">
+                                        Відправити повідомлення
+                                    </button>
                                 </td>
                             </tr>
                         @endforeach
@@ -60,5 +69,38 @@
             <!-- /.card -->
         </div>
     </div>
+ <!-- Модальне вікно -->
+ <div class="modal fade" id="sendMessageModal" tabindex="-1" role="dialog" aria-labelledby="sendMessageModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <form method="POST" id="sendMessageForm">
+          @csrf
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Відправити повідомлення <span id="modalUsername"></span></h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <textarea name="message" class="form-control" required placeholder="Введіть текст повідомлення..."></textarea>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success">Відправити</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
 
+    <script>
+    $(document).ready(function() {
+        $('.send-message-btn').on('click', function() {
+            var memberId = $(this).data('member-id');
+            var username = $(this).data('username');
+            var telegramId = $(this).data('telegram-id');
+            $('#modalUsername').text(username ? '(' + username + ')' : '(' + telegramId + ')');
+            $('#sendMessageForm').attr('action', '/admin/members/' + memberId + '/send-message');
+        });
+    });
+</script>
 @endsection
