@@ -162,7 +162,7 @@ class TelegramController extends Controller
                 $this->sendMainMenu($chatId);
                 break;
             case '🌿 Moringa':
-                if ($member) $member->update(['current_brand_id' => Brand::where('name', 'Moringa')->first()->id]);
+                if ($member) $member->update(['current_brand_id' => Brand::where('name', 'Like', '%Moringa%')->first()->id]);
                 $this->sendMoringaMenu($chatId);
                 break;
             case '🧪 Аналоги':
