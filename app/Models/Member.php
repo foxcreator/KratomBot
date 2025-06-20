@@ -13,7 +13,8 @@ class Member extends Model
         'phone',
         'telegram_id',
         'is_subscribed',
-        'username'
+        'username',
+        'current_brand_id',
     ];
 
     public function promocode()

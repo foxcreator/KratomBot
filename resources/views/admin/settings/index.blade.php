@@ -33,6 +33,10 @@
                             <label for="payment">Оплата</label>
                             <textarea name="payment" rows="5" class="form-control" id="payment" placeholder="Введите текст">{{ $settings['payment'] ?? '' }}</textarea>
                         </div>
+                        <div class="form-group">
+                            <label for="reviews">Відгуки</label>
+                            <textarea name="reviews" rows="5" class="form-control" id="reviews" placeholder="Введите текст">{{ $settings['reviews'] ?? '' }}</textarea>
+                        </div>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-success">Зберегти</button>
