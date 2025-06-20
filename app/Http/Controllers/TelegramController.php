@@ -243,12 +243,13 @@ class TelegramController extends Controller
 
     private function sendMoringaMenu($chatId)
     {
+        $brand = Brand::where('name', 'Moringa')->first();
         $keyboard = [
             [
                 ['text' => '📘 Про продукт', 'callback_data' => 'moringa_about'],
             ],
             [
-                ['text' => '💰 Прайс', 'callback_data' => 'moringa_price'],
+                ['text' => '💰 Прайс', 'callback_data' => 'brand_price_' . $brand->id],
             ],
             [
                 ['text' => '🛍 Товари бренду', 'callback_data' => 'moringa_products'],
