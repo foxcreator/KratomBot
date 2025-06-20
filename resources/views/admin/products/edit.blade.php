@@ -45,6 +45,13 @@
                     @enderror
                 </div>
                 <div class="form-group">
+                    <label for="is_top_sales">Топ продажів</label>
+                    <input type="checkbox" name="is_top_sales" class="form-control @error('is_top_sales') is-invalid @enderror" value="1" {{ old('is_top_sales', $product->is_top_sales) == 1 ? 'checked' : '' }}>
+                    @error('is_top_sales')
+                        <span class="invalid-feedback">{{ $message }}</span>
+                    @enderror
+                </div>
+                <div class="form-group">
                     <label for="image_url">Зображення (URL)</label>
                     <input type="text" name="image_url" class="form-control @error('image_url') is-invalid @enderror" value="{{ old('image_url', $product->image_url) }}">
                     @error('image_url')

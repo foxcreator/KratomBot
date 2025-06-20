@@ -22,7 +22,6 @@ class TelegramController extends Controller
     public function __construct()
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
-        $this->channelsUsername = $this->makeChannelName();
         $this->settings = Setting::all()->pluck('value', 'key')->toArray();
     }
 
@@ -65,8 +64,14 @@ class TelegramController extends Controller
 
     private function sendWelcome($chatId, $username)
     {
-        $text = "Вітаємо, @$username!\n\nОберіть дію з меню нижче:";
+        $text = !empty($this->settings['helloMessage']) ? $this->settings['helloMessage'] : "Вітаємо, @$username!\n\nОберіть дію з меню нижче:";
         $this->sendMainMenu($chatId, $text);
+        if (!empty($this->settings['channel'])) {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'Перейдіть в наш канал: ' . $this->settings['channel']
+            ]);
+        }
     }
 
     private function sendMainMenu($chatId, $text = null)
@@ -93,12 +98,12 @@ class TelegramController extends Controller
 
     private function handleCallback($chatId, $data)
     {
-        switch ($data) {
-            case 'catalog':
+        switch (true) {
+            case $data === 'catalog':
                 $this->sendCatalogMenu($chatId);
                 break;
-            case 'top_sales':
-                $products = Product::take(5)->get();
+            case $data === 'top_sales':
+                $products = Product::where('is_top_sales', true)->get();
                 if ($products->count() > 0) {
                     foreach ($products as $index => $product) {
                         $caption = ($index+1) . ". <b>{$product->name}</b>\n";
@@ -130,72 +135,57 @@ class TelegramController extends Controller
                 }
                 $this->sendMainMenu($chatId);
                 break;
-            case 'how_to_order':
+            case $data === 'how_to_order':
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
-                    'text' => 'Інструкція як замовити: ...'
+                    'text' => "<b>Інструкція як замовити:</b> \n\n" . $this->settings['howOrdering'],
+                    'parse_mode' => 'HTML'
                 ]);
                 $this->sendMainMenu($chatId);
                 break;
-            case 'payment':
+            case $data === 'payment':
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
-                    'text' => 'Інформація про оплату: ...'
+                    'text' => "<b>Інформація про оплату:</b> \n\n" . $this->settings['payment'],
+                    'parse_mode' => 'HTML'
                 ]);
                 $this->sendMainMenu($chatId);
                 break;
-            case 'reviews':
+            case $data === 'reviews':
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
-                    'text' => 'Відгуки наших клієнтів: ...'
+                    'text' => '<b>Відгуки наших клієнтів:</b> '
                 ]);
                 $this->sendMainMenu($chatId);
                 break;
-            case 'catalog_moringa':
+            case $data === 'catalog_moringa':
                 $this->sendMoringaMenu($chatId);
                 break;
-            case 'catalog_analogs':
+            case $data === 'catalog_analogs':
                 $this->sendAnalogsMenu($chatId);
                 break;
-            case 'moringa_about':
+            case (preg_match('/^brand_menu_(\\d+)$/', $data, $matches) ? true : false):
+                $brandId = $matches[1];
+                $this->sendBrandAnalogMenu($chatId, $brandId);
+                break;
+            case (preg_match('/^brand_about_(\\d+)$/', $data, $matches) ? true : false):
+                $brandId = $matches[1];
+                $brand = Brand::find($brandId);
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
-                    'text' => 'Про продукт Морінга: ...'
+                    'text' => 'Про бренд ' . $brand->name . ": \n\n" . $brand->description
                 ]);
-                $this->sendMoringaMenu($chatId);
+                $this->sendBrandAnalogMenu($chatId, $brandId);
                 break;
-            case 'moringa_price':
+            case (preg_match('/^brand_price_(\\d+)$/', $data, $matches) ? true : false):
+                $brandId = $matches[1];
+                $brand = Brand::find($brandId);
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
-                    'text' => 'Прайс на Морінга: ...'
+                    'text' => 'Прайс на бренд ' . $brand->name . ": \n\n" . $brand->price,
+                    'parse_mode' => 'HTML'
                 ]);
-                $this->sendMoringaMenu($chatId);
-                break;
-            case 'analogs_nps':
-                $this->sendNpsMenu($chatId);
-                break;
-            case 'nps_about':
-                Telegram::sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => 'Про продукт НРС: ...'
-                ]);
-                $this->sendNpsMenu($chatId);
-                break;
-            case 'nps_price':
-                Telegram::sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => 'Прайс на НРС: ...'
-                ]);
-                $this->sendNpsMenu($chatId);
-                break;
-            case 'back_to_main':
-                $this->sendMainMenu($chatId);
-                break;
-            case 'back_to_catalog':
-                $this->sendCatalogMenu($chatId);
-                break;
-            case 'back_to_analogs':
-                $this->sendAnalogsMenu($chatId);
+                $this->sendBrandAnalogMenu($chatId, $brandId);
                 break;
             case str_starts_with($data, 'buy_product_'):
                 $productId = (int)str_replace('buy_product_', '', $data);
@@ -213,12 +203,21 @@ class TelegramController extends Controller
                 ]);
                 $this->sendMainMenu($chatId);
                 break;
+            case (preg_match('/^brand_products_(\\d+)$/', $data, $matches) ? true : false):
+                $brandId = $matches[1];
+                $this->sendBrandProductsMenu($chatId, $brandId);
+                break;
+            case $data === 'moringa_products':
+                $this->sendBrandProductsMenu($chatId, Brand::where('name', 'Moringa')->first()->id);
+                break;
+            default:
+                $this->sendMainMenu($chatId);
+                break;
         }
     }
 
     private function handleText($chatId, $text)
     {
-        // Якщо користувач надсилає текст, просто показуємо головне меню
         $this->sendMainMenu($chatId);
     }
 
@@ -252,6 +251,9 @@ class TelegramController extends Controller
                 ['text' => '💰 Прайс', 'callback_data' => 'moringa_price'],
             ],
             [
+                ['text' => '🛍 Товари бренду', 'callback_data' => 'moringa_products'],
+            ],
+            [
                 ['text' => '⬅️ Назад', 'callback_data' => 'back_to_catalog'],
             ],
         ];
@@ -264,19 +266,16 @@ class TelegramController extends Controller
 
     private function sendAnalogsMenu($chatId)
     {
-        $analogs = Brand::all();
-        foreach ($analogs as $analog) {
-            if ($analog->name == 'Moringa') {
-                continue;
-            }
-            
+        $brands = Brand::where('name', '!=', 'Moringa')->get();
+        $keyboard = [];
+        foreach ($brands as $brand) {
             $keyboard[] = [
-                ['text' => $analog->name, 'callback_data' => 'analogs_' . $analog->id . '_' . $analog->name]
+                ['text' => $brand->name, 'callback_data' => 'brand_menu_' . $brand->id]
             ];
         }
         $keyboard[] = [
-                ['text' => '⬅️ Назад', 'callback_data' => 'back_to_catalog'],
-            ];
+            ['text' => '⬅️ Назад', 'callback_data' => 'back_to_catalog'],
+        ];
         Telegram::sendMessage([
             'chat_id' => $chatId,
             'text' => '🧪 Аналоги:',
@@ -284,36 +283,75 @@ class TelegramController extends Controller
         ]);
     }
 
-    private function sendNpsMenu($chatId)
+    private function sendBrandAnalogMenu($chatId, $brandId)
     {
+        $brand = Brand::find($brandId);
         $keyboard = [
             [
-                ['text' => '📘 Про продукт', 'callback_data' => 'nps_about'],
+                ['text' => '📘 Про товар', 'callback_data' => 'brand_about_' . $brandId],
             ],
             [
-                ['text' => '💰 Прайс', 'callback_data' => 'nps_price'],
+                ['text' => '💰 Прайс', 'callback_data' => 'brand_price_' . $brandId],
             ],
             [
-                ['text' => '⬅️ Назад', 'callback_data' => 'back_to_analogs'],
+                ['text' => '🛍 Товари бренду', 'callback_data' => 'brand_products_' . $brandId],
+            ],
+            [
+                ['text' => '⬅️ Назад', 'callback_data' => 'catalog_analogs'],
             ],
         ];
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => '🌫 НРС:',
+            'text' => 'Бренд: ' . $brand->name,
             'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
         ]);
     }
 
-    private function makeChannelName()
+    private function sendBrandProductsMenu($chatId, $brandId)
     {
-        $channels = json_decode(Setting::where('key', 'channels')->first()->value);
-        $channelNames = [];
-        foreach ($channels as $channel) {
-            if ($channel->is_my) {
-                $channelNames[] = str_replace("https://t.me/", "@", $channel->url);
-            }
-        }
+        $products = Product::where('brand_id', $brandId)->get();
+        if ($products->count() > 0) {
+            foreach ($products as $product) {
+                $caption = "<b>{$product->name}</b>\n";
+                $caption .= "{$product->description}\n";
+                $caption .= "💰 {$product->price} грн";
+                $keyboard = [
+                    [
+                        ['text' => '🛒 Придбати', 'callback_data' => 'buy_product_' . $product->id]
+                    ]
+                ];
 
-        return $channelNames;
+                if (!empty($product->image_url)) {
+                    $localPath = public_path($product->image_url);
+                    if (file_exists($localPath)) {
+                        $photo = \Telegram\Bot\FileUpload\InputFile::create($localPath, basename($localPath));
+                    } else {
+                        $photo = $product->image_url;
+                    }
+
+                    Telegram::sendPhoto([
+                        'chat_id' => $chatId,
+                        'photo' => $photo,
+                        'caption' => $caption,
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+                    ]);
+                } else {
+                    Telegram::sendMessage([
+                        'chat_id' => $chatId,
+                        'text' => $caption,
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+                    ]);
+                }
+            }
+        } else {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'У цього бренду ще немає товарів.'
+            ]);
+        }
+        // Повертаємо меню аналогів
+        $this->sendAnalogsMenu($chatId);
     }
 }

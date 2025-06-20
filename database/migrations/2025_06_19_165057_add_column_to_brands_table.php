@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('members', function (Blueprint $table) {
-            $table->id();
-            $table->string('telegram_id');
-            $table->timestamps();
+        Schema::table('brands', function (Blueprint $table) {
+            $table->string('description')->nullable()->after('name');
         });
     }
 
@@ -23,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('members');
+        Schema::table('brands', function (Blueprint $table) {
+            $table->dropColumn('description');
+        });
     }
 };

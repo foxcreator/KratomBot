@@ -29,6 +29,7 @@ class ProductController extends Controller
             'price' => 'required|numeric',
             'description' => 'required|string',
             'image' => 'nullable|image|max:2048',
+            'is_top_sales' => 'nullable|boolean',
         ]);
 
         if ($request->hasFile('image')) {
@@ -54,6 +55,7 @@ class ProductController extends Controller
             'price' => 'required|numeric',
             'description' => 'required|string',
             'image' => 'nullable|image|max:2048',
+            'is_top_sales' => 'nullable|boolean',
         ]);
 
         if ($request->hasFile('image')) {

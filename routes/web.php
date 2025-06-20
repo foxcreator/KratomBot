@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [\App\Http\Controllers\FrontController::class, 'index'])->name('front');
-Route::get('/api-docs', [\App\Http\Controllers\Api\PostbackController::class, 'apiDocs']);
+// Route::get('/api-docs', [\App\Http\Controllers\Api\PostbackController::class, 'apiDocs']);
 Route::post('/telegram/webhook', [TelegramController::class, 'webhook'])->withoutMiddleware(['csrf']);
 
 Route::prefix('/admin')->name('admin.')->middleware(['auth'])->group(function () {

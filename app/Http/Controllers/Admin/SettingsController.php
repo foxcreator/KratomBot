@@ -35,39 +35,7 @@ class SettingsController extends Controller
             }
         }
 
-        return redirect()->back()->with(['status' => 'Настройки обновлены']);
-    }
-
-    public function tokens()
-    {
-        $tokens = ApiToken::all();
-        return view('admin.settings.tokens', compact('tokens'));
-    }
-
-    public function saveShopToken(Request $request)
-    {
-        $storeName = $request->get('store_name');
-        $token = $this->generateToken();
-
-        $apiToken = ApiToken::create([
-            'token' => $token,
-            'store_name' => $storeName,
-        ]);
-
-        if ($apiToken) {
-            return redirect()->back()->with(['status' => "Токен для $storeName успешно сгенерирован"]);
-        }
-        return redirect()->back()->with(['error' => "Что то пошло не так. Попробуйте снова"]);
-
-    }
-
-    protected function generateToken()
-    {
-        do {
-            $token = Str::random(20) . Carbon::now()->unix();
-        } while (ApiToken::where('token', $token)->exists());
-
-        return $token;
+        return redirect()->back()->with(['status' => 'Налаштування збережені!']);
     }
 }
 

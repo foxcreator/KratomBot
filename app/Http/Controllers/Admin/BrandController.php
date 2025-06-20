@@ -23,6 +23,8 @@ class BrandController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:brands,name',
+            'description' => 'required|string|max:255',
+            'price' => 'nullable|string',
         ]);
         Brand::create($validated);
         return redirect()->route('admin.brands.index')->with('success', 'Бренд створено!');
@@ -37,6 +39,8 @@ class BrandController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:brands,name,' . $brand->id,
+            'description' => 'required|string|max:255',
+            'price' => 'nullable|string',
         ]);
         $brand->update($validated);
         return redirect()->route('admin.brands.index')->with('success', 'Бренд оновлено!');
