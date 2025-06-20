@@ -285,6 +285,11 @@ class TelegramController extends Controller
             $keyboard[] = [$brand->name];
         }
         $keyboard[] = ['⬅️ Назад'];
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => '👇🏻',
+            'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
+        ]);
     }
 
     private function sendBrandAnalogMenu($chatId, $brandId)
