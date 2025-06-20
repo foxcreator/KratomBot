@@ -64,7 +64,8 @@ class TelegramController extends Controller
 
     private function sendWelcome($chatId, $username)
     {
-        $text = !empty($this->settings['helloMessage']) ? $this->settings['helloMessage'] : "Вітаємо, @$username!\n\nОберіть дію з меню нижче:";
+        $rawText = !empty($this->settings['helloMessage']) ? $this->settings['helloMessage'] : "Вітаємо, {{ username }}!\n\nОберіть дію з меню нижче:";
+        $text = $this->replacePlaceholders($rawText, ['username' => '@' . $username]);
         $this->sendMainMenu($chatId, $text);
         if (!empty($this->settings['channel'])) {
             Telegram::sendMessage([
@@ -83,7 +84,7 @@ class TelegramController extends Controller
         ];
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => $text ?? 'Головне меню:',
+            'text' => $text ?? '👇🏻',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
     }
@@ -91,6 +92,8 @@ class TelegramController extends Controller
     private function handleText($chatId, $text)
     {
         $member = Member::where('telegram_id', $chatId)->first();
+        $replacements = ['username' => ($member && $member->username) ? '@' . $member->username : ''];
+
         switch ($text) {
             case '📦 Каталог':
                 $this->sendCatalogMenu($chatId);
@@ -129,6 +132,7 @@ class TelegramController extends Controller
                 $this->sendMainMenu($chatId);
                 break;
             case '📘 Як замовити':
+                $messageText = $this->settings['howOrdering'] ?? 'Інформація відсутня.';
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
                     'text' => "<b>Інструкція як замовити:</b> \n\n" . $this->settings['howOrdering'],
@@ -138,6 +142,7 @@ class TelegramController extends Controller
                 $this->sendMainMenu($chatId);
                 break;
             case '💳 Оплата':
+                $messageText = $this->settings['payment'] ?? 'Інформація відсутня.';
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
                     'text' => "<b>Інформація про оплату:</b> \n\n" . $this->settings['payment'],
@@ -147,6 +152,7 @@ class TelegramController extends Controller
                 $this->sendMainMenu($chatId);
                 break;
             case '⭐️ Відгуки':
+                $messageText = $this->settings['reviews'] ?? 'Відгуки відсутні.';
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
                     'text' => '<b>Відгуки наших клієнтів:</b> \n\n' . $this->settings['reviews'],
@@ -243,21 +249,20 @@ class TelegramController extends Controller
             ['🧪 Аналоги'],
             ['⬅️ Назад'],
         ];
-        
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => 'Оберіть категорію:',
+            'text' => '👇🏻',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
     }
 
     private function sendMoringaMenu($chatId)
     {
-        $brand = Brand::where('name', 'Moringa')->first();
+        $brand = Brand::where('id', 1)->first();
         $keyboard = $this->getMoringaMenuKeyboard($brand);
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => '🌿 Moringa:',
+            'text' => '👇🏻',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
     }
@@ -280,12 +285,6 @@ class TelegramController extends Controller
             $keyboard[] = [$brand->name];
         }
         $keyboard[] = ['⬅️ Назад'];
-       
-        Telegram::sendMessage([
-            'chat_id' => $chatId,
-            'text' => 'Оберіть бренд:',
-            'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
-        ]);
     }
 
     private function sendBrandAnalogMenu($chatId, $brandId)
@@ -379,5 +378,17 @@ class TelegramController extends Controller
             ]);
             $this->sendMainMenu($chatId);
         }
+    }
+
+    private function replacePlaceholders(?string $text, array $data): string
+    {
+        if (empty($text)) {
+            return '';
+        }
+        foreach ($data as $key => $value) {
+            $text = str_replace("{{{$key}}}", $value, $text);
+            $text = str_replace("{{ {$key} }}", $value, $text);
+        }
+        return $text;
     }
 }

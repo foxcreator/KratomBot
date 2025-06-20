@@ -82,7 +82,7 @@
               </button>
             </div>
             <div class="modal-body">
-              <textarea name="message" class="form-control" required placeholder="Введіть текст повідомлення..."></textarea>
+              <textarea name="message" rows="8" class="form-control" required placeholder="Введіть текст повідомлення..."></textarea>
             </div>
             <div class="modal-footer">
               <button class="btn btn-success">Відправити</button>

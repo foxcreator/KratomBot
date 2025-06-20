@@ -19,7 +19,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="hello-message">Вітання</label>
-                            <input type="text" name="helloMessage" class="form-control" id="hello-message" placeholder="Введить вітальне повідомлення" value="{{ $settings['helloMessage'] ?? '' }}">
+                            <textarea name="helloMessage" rows="3" class="form-control" id="hello-message" placeholder="Введите текст">{{ $settings['helloMessage'] ?? '' }}</textarea>
                         </div>
                         <div class="form-group">
                             <label for="channel">Текст переходу в Telegram канал</label>
