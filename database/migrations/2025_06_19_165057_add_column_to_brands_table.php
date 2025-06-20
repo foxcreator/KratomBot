@@ -11,12 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('promocodes', function (Blueprint $table) {
-            $table->id();
-            $table->string('code')->unique();
-            $table->foreignId('member_id')->constrained('members');
-            $table->boolean('is_used')->default(false);
-            $table->timestamps();
+        Schema::table('brands', function (Blueprint $table) {
+            $table->string('description')->nullable()->after('name');
         });
     }
 
@@ -25,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('promocodes');
+        Schema::table('brands', function (Blueprint $table) {
+            $table->dropColumn('description');
+        });
     }
 };

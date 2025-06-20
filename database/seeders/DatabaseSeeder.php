@@ -23,9 +23,9 @@ class DatabaseSeeder extends Seeder
 //        ]);
 
         User::factory()->create([
-            'name' => 'Kratom Admin',
+            'name' => 'Admin',
             'email' => 'admin@admin.com',
-            'password' => 'admin',
+            'password' => '£a{1£y%Eh67S',
         ]);
 
 //        $members = Member::factory(50)->create();

@@ -55,7 +55,7 @@
     @endif
     <!-- Preloader -->
     <div class="preloader flex-column justify-content-center align-items-center">
-        <h3 class="animation__wobble"><b>Kratom</b>ControlPanel</h3>
+        <h3 class="animation__wobble">ControlPanel</h3>
     </div>
 
     <nav class="main-header navbar navbar-expand navbar-dark">
@@ -77,8 +77,7 @@
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
         <!-- Brand Logo -->
         <a href="{{ route('admin.dashboard') }}" class="brand-link d-flex align-items-center">
-
-            <b>Kratom</b>ControlPanel
+            ControlPanel
         </a>
 
         <div class="sidebar">
@@ -93,38 +92,38 @@
                     <li class="nav-item">
                         <a href="{{ route('admin.dashboard') }}" class="nav-link">
                             <i class="nav-icon fas fa-tachometer-alt"></i>
-                            <p>Панель информации</p>
+                            <p>Панель інформації</p>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ route('admin.members') }}" class="nav-link">
                             <i class="nav-icon fas fa-users text-info"></i>
-                            <p>Участники</p>
+                            <p>Користувачі</p>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ route('admin.promocodes') }}" class="nav-link">
-                            <i class="nav-icon fas fa-barcode text-info"></i>
-                            <p>Промокоды</p>
+                        <a href="{{ route('admin.products.index') }}" class="nav-link">
+                            <i class="nav-icon fas fa-users text-info"></i>
+                            <p>Продукти</p>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ route('admin.promocodes.statistics') }}" class="nav-link">
-                            <i class="nav-icon fas fa-chart-line text-info"></i>
-                            <p>Статистика</p>
+                        <a href="{{ route('admin.brands.index') }}" class="nav-link">
+                            <i class="nav-icon fas fa-users text-info"></i>
+                            <p>Бренди</p>
                         </a>
                     </li>
-                    <li class="nav-header">Инструменты</li>
+                    <li class="nav-item">
+                        <a href="{{ route('admin.orders.index') }}" class="nav-link">
+                            <i class="nav-icon fas fa-users text-info"></i>
+                            <p>Замовлення</p>
+                        </a>
+                    </li>
+                    <li class="nav-header">Інструменти</li>
                     <li class="nav-item">
                         <a href="{{ route('admin.settings') }}" class="nav-link">
                             <i class="nav-icon fas fa-tools text-gray"></i>
-                            <p>Настройки бота</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('admin.settings.tokens') }}" class="nav-link">
-                            <i class="nav-icon fas fa-key text-gray"></i>
-                            <p>Токены магазинов</p>
+                            <p>Налаштування бота</p>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -132,7 +131,7 @@
                             @csrf
                             <button type="submit" class="nav-link btn text-left">
                                 <i class="nav-icon fas fa-sign-out-alt text-danger"></i>
-                                <span class="text-danger">Выйти</span>
+                                <span class="text-danger">Вихід</span>
                             </button>
                         </form>
                     </li>

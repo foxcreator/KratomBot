@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('schedule_delete_messages', function (Blueprint $table) {
+        Schema::create('products', function (Blueprint $table) {
             $table->id();
-            $table->string('chat_id');
-            $table->integer('message_id');
-            $table->timestamp('delete_at');
+            $table->string('name');
+            $table->text('description');
+            $table->string('price');
+            $table->string('image_url')->nullable();
+            $table->foreignId('brand_id')->constrained('brands')->onDelete('cascade');
             $table->timestamps();
         });
     }
@@ -25,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('schedule_delete_messages');
+        Schema::dropIfExists('products');
     }
 };

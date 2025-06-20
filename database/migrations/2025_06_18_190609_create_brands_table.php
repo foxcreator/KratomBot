@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('promocodes', function (Blueprint $table) {
-            $table->string('barcode')->after('code')->nullable();
+        Schema::create('brands', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->timestamps();
         });
     }
 
@@ -21,8 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('promocodes', function (Blueprint $table) {
-            $table->dropColumn('barcode');
-        });
+        Schema::dropIfExists('brands');
     }
 };

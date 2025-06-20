@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('promocodes', function (Blueprint $table) {
-            $table->string('store_name')->nullable()->after('is_used');
+        Schema::table('products', function (Blueprint $table) {
+            $table->boolean('is_top_sales')->default(false);
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('promocodes', function (Blueprint $table) {
-            $table->dropColumn('store_name');
+        Schema::table('products', function (Blueprint $table) {
+            //
         });
     }
 };
