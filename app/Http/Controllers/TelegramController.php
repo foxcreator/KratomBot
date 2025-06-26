@@ -84,7 +84,7 @@ class TelegramController extends Controller
         ];
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => $text ?? '👇🏻',
+            'text' => $text ?? '☝',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
     }
@@ -184,7 +184,7 @@ class TelegramController extends Controller
                 }
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
-                    'text' => 'Про бренд ' . $brand->name . ": \n\n" . $brand->description,
+                    'text' => 'Про категорію ' . $brand->name . ": \n\n" . $brand->description,
                     'reply_markup' => json_encode(['keyboard' => $this->getMoringaMenuKeyboard($brand), 'resize_keyboard' => true])
                 ]);
                 break;
@@ -198,12 +198,12 @@ class TelegramController extends Controller
                 }
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
-                    'text' => 'Прайс на бренд ' . $brand->name . ": \n\n" . $brand->price,
+                    'text' => 'Прайс на категорію ' . $brand->name . ": \n\n" . $brand->price,
                     'parse_mode' => 'HTML',
                     'reply_markup' => json_encode(['keyboard' => $this->getMoringaMenuKeyboard($brand), 'resize_keyboard' => true])
                 ]);
                 break;
-            case '🛍 Товари бренду':
+            case '🛍 Товари категорії':
                 $brand = null;
                 if ($member && $member->current_brand_id) {
                     $brand = Brand::find($member->current_brand_id);
@@ -237,7 +237,7 @@ class TelegramController extends Controller
                     $this->sendMainMenu($chatId);
                     break;
                 }
-                $this->sendMainMenu($chatId);
+                $this->sendAnalogsMenu($chatId);
                 break;
         }
     }
@@ -251,7 +251,7 @@ class TelegramController extends Controller
         ];
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => '👇🏻',
+            'text' => '.',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
     }
@@ -262,7 +262,7 @@ class TelegramController extends Controller
         $keyboard = $this->getMoringaMenuKeyboard($brand);
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => '👇🏻',
+            'text' => '☝',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
     }
@@ -272,14 +272,14 @@ class TelegramController extends Controller
         return [
             ['📘 Про продукт'],
             ['💰 Прайс'],
-            ['🛍 Товари бренду'],
+            ['🛍 Товари категорії'],
             ['⬅️ Назад'],
         ];
     }
 
     private function sendAnalogsMenu($chatId)
     {
-        $brands = Brand::where('name', '!=', 'Moringa')->get();
+        $brands = Brand::where('id', '!=', 1)->get();
         $keyboard = [];
         foreach ($brands as $brand) {
             $keyboard[] = [$brand->name];
@@ -287,7 +287,7 @@ class TelegramController extends Controller
         $keyboard[] = ['⬅️ Назад'];
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => '👇🏻',
+            'text' => '☝',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
     }
@@ -296,14 +296,14 @@ class TelegramController extends Controller
     {
         $brand = Brand::find($brandId);
         $keyboard = [
-            ['📘 Про товар'],
+            ['📘 Про продукт'],
             ['💰 Прайс'],
-            ['🛍 Товари бренду'],
+            ['🛍 Товари категорії'],
             ['⬅️ Назад'],
         ];
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => 'Бренд: ' . $brand->name,
+            'text' => 'Категорія: ' . $brand->name,
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
     }
@@ -349,7 +349,7 @@ class TelegramController extends Controller
         } else {
             Telegram::sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'У цього бренду ще немає товарів.'
+                'text' => 'У цієї категорії ще немає товарів.'
             ]);
         }
         // Повертаємо меню аналогів (ReplyKeyboardMarkup)

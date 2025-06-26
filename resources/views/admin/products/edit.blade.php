@@ -19,9 +19,9 @@
                     @enderror
                 </div>
                 <div class="form-group">
-                    <label for="brand_id">Бренд</label>
+                    <label for="brand_id">Категорія</label>
                     <select name="brand_id" class="form-control @error('brand_id') is-invalid @enderror" required>
-                        <option value="">Оберіть бренд</option>
+                        <option value="">Оберіть категорію</option>
                         @foreach($brands as $brand)
                             <option value="{{ $brand->id }}" {{ (old('brand_id', $product->brand_id) == $brand->id) ? 'selected' : '' }}>{{ $brand->name }}</option>
                         @endforeach

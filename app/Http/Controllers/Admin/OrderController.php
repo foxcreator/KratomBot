@@ -8,9 +8,15 @@ use App\Models\Order;
 
 class OrderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $orders = Order::paginate(30);
+        $ordersQuery = Order::query();
+        if ($request->filled('username')) {
+            $ordersQuery->whereHas('member', function($q) use ($request) {
+                $q->where('username', 'like', '%' . $request->username . '%');
+            });
+        }
+        $orders = $ordersQuery->paginate(30);
         return view('admin.orders.index', compact('orders'));
     }
 

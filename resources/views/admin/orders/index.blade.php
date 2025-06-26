@@ -7,11 +7,8 @@
                     <h2 class="card-title">Участники</h2>
 
                     <div class="card-tools">
-                        <form action="{{ route('admin.members') }}" method="GET" class="input-group input-group-sm" style="width: 300px;">
-                            @csrf
-                            <input type="text" name="table_search" class="form-control float-right"
-                                   placeholder="Поиск">
-
+                        <form action="{{ route('admin.orders.index') }}" method="GET" class="input-group input-group-sm" style="width: 300px;">
+                            <input type="text" name="username" class="form-control float-right" placeholder="Пошук по ніку" value="{{ request('username') }}">
                             <div class="input-group-append">
                                 <button type="submit" class="btn btn-default">
                                     <i class="fas fa-search"></i>
@@ -30,6 +27,7 @@
                                 <th>Назва продукту</th>
                                 <th>Нікнейм користувача</th>
                                 <th>Статус</th>
+                                <th>Створено</th>
                                 <th class="text-right">Дії</th>
                             </tr>
                         </thead>
@@ -41,6 +39,7 @@
                                 <td>{{ $order->product->name }}</td>
                                 <td>{{ $order->member->username }}</td>
                                 <td>{{ $order->status }}</td>
+                                <td>{{ $order->created_at->format('d.m.Y H:i') }}</td>
                                 <td class="d-flex justify-content-end">
                                     @if($order->status == 'new')
                                         <form action="{{ route('admin.orders.change-status', $order->id) }}" method="POST">

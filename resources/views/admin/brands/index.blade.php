@@ -3,10 +3,10 @@
 <div class="container-fluid">
     <div class="row mb-2">
         <div class="col-sm-6">
-            <h1>Бренди</h1>
+            <h1>Категорії</h1>
         </div>
         <div class="col-sm-6 text-right">
-            <a href="{{ route('admin.brands.create') }}" class="btn btn-primary">Додати бренд</a>
+            <a href="{{ route('admin.brands.create') }}" class="btn btn-primary">Додати категорію</a>
         </div>
     </div>
     <div class="card">
