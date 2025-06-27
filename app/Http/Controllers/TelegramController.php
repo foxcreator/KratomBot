@@ -96,7 +96,7 @@ class TelegramController extends Controller
 
         switch ($text) {
             case '📦 Каталог':
-                $this->sendCatalogMenu($chatId);
+                $this->sendAnalogsMenu($chatId);
                 break;
             case '🔥 Топ продаж':
                 $products = Product::where('is_top_sales', true)->get();
@@ -279,7 +279,7 @@ class TelegramController extends Controller
 
     private function sendAnalogsMenu($chatId)
     {
-        $brands = Brand::where('id', '!=', 1)->get();
+        $brands = Brand::all();
         $keyboard = [];
         foreach ($brands as $brand) {
             $keyboard[] = [$brand->name];
