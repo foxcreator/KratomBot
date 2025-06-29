@@ -26,4 +26,21 @@ class Member extends Model
     {
         return $this->hasMany(Order::class);
     }
+
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class);
+    }
+
+    public function getCartTotalAttribute()
+    {
+        return $this->cartItems->sum(function ($item) {
+            return $item->quantity * (float) $item->product->price;
+        });
+    }
+
+    public function getCartItemsCountAttribute()
+    {
+        return $this->cartItems->sum('quantity');
+    }
 }

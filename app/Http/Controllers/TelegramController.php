@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Member;
 use App\Models\Setting;
 use App\Models\Product;
+use App\Models\CartItem;
+use App\Models\OrderItem;
 use Illuminate\Support\Facades\Log;
 use Telegram\Bot\FileUpload\InputFile;
 use Mockery\Exception;
@@ -77,8 +79,12 @@ class TelegramController extends Controller
 
     private function sendMainMenu($chatId, $text = null)
     {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $cartCount = $member ? $member->cart_items_count : 0;
+        
         $keyboard = [
             ['📦 Каталог', '🔥 Топ продаж'],
+            ['🛒 Корзина' . ($cartCount > 0 ? " ({$cartCount})" : '')],
             ['📘 Як замовити', '💳 Оплата'],
             ['⭐️ Відгуки'],
         ];
@@ -87,6 +93,300 @@ class TelegramController extends Controller
             'text' => $text ?? '☝',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
         ]);
+    }
+
+    private function showCart($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        
+        if (!$member || $member->cartItems->isEmpty()) {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => '🛒 Ваша корзина порожня',
+                'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard(), 'resize_keyboard' => true])
+            ]);
+            return;
+        }
+
+        $message = "🛒 <b>Ваша корзина:</b>\n\n";
+        $total = 0;
+        $inlineKeyboard = [];
+
+        foreach ($member->cartItems as $item) {
+            $product = $item->product;
+            $itemTotal = $item->quantity * (float) $product->price;
+            $total += $itemTotal;
+            
+            $message .= "📦 <b>{$product->name}</b>\n";
+            $message .= "   Кількість: {$item->quantity} шт.\n";
+            $message .= "   Ціна: {$product->price} грн × {$item->quantity} = {$itemTotal} грн\n\n";
+            
+            // Додаємо кнопки для управління кількістю
+            $inlineKeyboard[] = [
+                ['text' => '➖', 'callback_data' => 'decrease_quantity_' . $product->id],
+                ['text' => $item->quantity, 'callback_data' => 'quantity_' . $product->id],
+                ['text' => '➕', 'callback_data' => 'increase_quantity_' . $product->id],
+                ['text' => '🗑', 'callback_data' => 'remove_from_cart_' . $product->id]
+            ];
+        }
+
+        $message .= "💰 <b>Загальна сума: {$total} грн</b>";
+
+        // Додаємо кнопки для загальних дій з корзиною
+        $inlineKeyboard[] = [
+            ['text' => '💳 Оформити замовлення', 'callback_data' => 'checkout_cart'],
+            ['text' => '🗑 Очистити корзину', 'callback_data' => 'clear_cart']
+        ];
+        $inlineKeyboard[] = [
+            ['text' => '⬅️ Назад до меню', 'callback_data' => 'back_to_menu']
+        ];
+
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
+        ]);
+    }
+
+    private function checkoutCart($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        
+        if (!$member || $member->cartItems->isEmpty()) {
+            Telegram::answerCallbackQuery([
+                'callback_query_id' => $this->getCallbackQueryId(),
+                'text' => 'Корзина порожня'
+            ]);
+            return;
+        }
+
+        // Створюємо одне замовлення для всіх товарів корзини
+        $totalAmount = 0;
+        $orderItems = [];
+
+        // Підраховуємо загальну суму та готуємо дані для товарів
+        foreach ($member->cartItems as $cartItem) {
+            $itemTotal = $cartItem->quantity * (float) $cartItem->product->price;
+            $totalAmount += $itemTotal;
+            
+            $orderItems[] = [
+                'product_id' => $cartItem->product_id,
+                'quantity' => $cartItem->quantity,
+                'price' => $cartItem->product->price
+            ];
+        }
+
+        // Створюємо замовлення
+        $order = Order::create([
+            'member_id' => $member->id,
+            'status' => 'new',
+            'total_amount' => $totalAmount,
+            'source' => 'cart',
+            'notes' => 'Замовлення з корзини'
+        ]);
+
+        // Створюємо товари замовлення
+        foreach ($orderItems as $item) {
+            OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $item['product_id'],
+                'quantity' => $item['quantity'],
+                'price' => $item['price']
+            ]);
+        }
+
+        // Очищаємо корзину
+        $member->cartItems()->delete();
+
+        Telegram::answerCallbackQuery([
+            'callback_query_id' => $this->getCallbackQueryId(),
+            'text' => '✅ Замовлення оформлено!'
+        ]);
+
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => "✅ Замовлення успішно оформлено!\n\n📋 Номер замовлення: {$order->order_number}\n💰 Загальна сума: {$order->formatted_total}\n\nМенеджер звʼяжеться з вами найближчим часом.",
+            'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard(), 'resize_keyboard' => true])
+        ]);
+    }
+
+    private function clearCart($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        
+        if ($member) {
+            $member->cartItems()->delete();
+        }
+
+        Telegram::answerCallbackQuery([
+            'callback_query_id' => $this->getCallbackQueryId(),
+            'text' => 'Корзина очищена'
+        ]);
+
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => '🗑 Корзина очищена',
+            'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard(), 'resize_keyboard' => true])
+        ]);
+    }
+
+    private function addToCart($chatId, $productId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $product = Product::find($productId);
+        
+        if (!$member || !$product) {
+            Telegram::answerCallbackQuery([
+                'callback_query_id' => $this->getCallbackQueryId(),
+                'text' => 'Помилка додавання товару'
+            ]);
+            return;
+        }
+
+        // Перевіряємо чи товар вже є в корзині
+        $cartItem = CartItem::where('member_id', $member->id)
+                           ->where('product_id', $productId)
+                           ->first();
+
+        if ($cartItem) {
+            // Якщо товар вже є, збільшуємо кількість
+            $cartItem->increment('quantity');
+        } else {
+            // Якщо товару немає, створюємо новий запис
+            CartItem::create([
+                'member_id' => $member->id,
+                'product_id' => $productId,
+                'quantity' => 1
+            ]);
+        }
+
+        Telegram::answerCallbackQuery([
+            'callback_query_id' => $this->getCallbackQueryId(),
+            'text' => "✅ {$product->name} додано в корзину"
+        ]);
+    }
+
+    private function removeFromCart($chatId, $productId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        
+        if ($member) {
+            CartItem::where('member_id', $member->id)
+                   ->where('product_id', $productId)
+                   ->delete();
+        }
+
+        Telegram::answerCallbackQuery([
+            'callback_query_id' => $this->getCallbackQueryId(),
+            'text' => 'Товар видалено з корзини'
+        ]);
+        
+        // Оновлюємо відображення корзини
+        $this->updateCartMessage($chatId);
+    }
+
+    private function changeQuantity($chatId, $productId, $change)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        
+        if (!$member) {
+            return;
+        }
+
+        $cartItem = CartItem::where('member_id', $member->id)
+                           ->where('product_id', $productId)
+                           ->first();
+
+        if (!$cartItem) {
+            return;
+        }
+
+        $newQuantity = $cartItem->quantity + $change;
+        
+        if ($newQuantity <= 0) {
+            // Якщо кількість стала 0 або менше, видаляємо товар
+            $cartItem->delete();
+            Telegram::answerCallbackQuery([
+                'callback_query_id' => $this->getCallbackQueryId(),
+                'text' => 'Товар видалено з корзини'
+            ]);
+        } else {
+            // Оновлюємо кількість
+            $cartItem->update(['quantity' => $newQuantity]);
+            Telegram::answerCallbackQuery([
+                'callback_query_id' => $this->getCallbackQueryId(),
+                'text' => "Кількість оновлено: {$newQuantity}"
+            ]);
+        }
+        
+        // Оновлюємо відображення корзини
+        $this->updateCartMessage($chatId);
+    }
+
+    private function updateCartMessage($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        
+        if (!$member || $member->cartItems->isEmpty()) {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => '🛒 Ваша корзина порожня',
+                'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard(), 'resize_keyboard' => true])
+            ]);
+            return;
+        }
+
+        $message = "🛒 <b>Ваша корзина:</b>\n\n";
+        $total = 0;
+        $inlineKeyboard = [];
+
+        foreach ($member->cartItems as $item) {
+            $product = $item->product;
+            $itemTotal = $item->quantity * (float) $product->price;
+            $total += $itemTotal;
+            
+            $message .= "📦 <b>{$product->name}</b>\n";
+            $message .= "   Кількість: {$item->quantity} шт.\n";
+            $message .= "   Ціна: {$product->price} грн × {$item->quantity} = {$itemTotal} грн\n\n";
+            
+            // Додаємо кнопки для управління кількістю
+            $inlineKeyboard[] = [
+                ['text' => '➖', 'callback_data' => 'decrease_quantity_' . $product->id],
+                ['text' => $item->quantity, 'callback_data' => 'quantity_' . $product->id],
+                ['text' => '➕', 'callback_data' => 'increase_quantity_' . $product->id],
+                ['text' => '🗑', 'callback_data' => 'remove_from_cart_' . $product->id]
+            ];
+        }
+
+        $message .= "💰 <b>Загальна сума: {$total} грн</b>";
+
+        // Додаємо кнопки для загальних дій з корзиною
+        $inlineKeyboard[] = [
+            ['text' => '💳 Оформити замовлення', 'callback_data' => 'checkout_cart'],
+            ['text' => '🗑 Очистити корзину', 'callback_data' => 'clear_cart']
+        ];
+        $inlineKeyboard[] = [
+            ['text' => '⬅️ Назад до меню', 'callback_data' => 'back_to_menu']
+        ];
+
+        // Отримуємо ID повідомлення для оновлення
+        $update = Telegram::getWebhookUpdates();
+        $messageId = $update->getCallbackQuery()->getMessage()->getMessageId();
+
+        Telegram::editMessageText([
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text' => $message,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
+        ]);
+    }
+
+    private function getCallbackQueryId()
+    {
+        $update = Telegram::getWebhookUpdates();
+        return $update->getCallbackQuery()->getId();
     }
 
     private function handleText($chatId, $text)
@@ -112,7 +412,8 @@ class TelegramController extends Controller
                         }
                         $inlineKeyboard = [
                             [
-                                ['text' => '🛒 Придбати', 'callback_data' => 'buy_product_' . $product->id]
+                                ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_' . $product->id],
+                                ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
                             ]
                         ];
                         Telegram::sendPhoto([
@@ -129,6 +430,18 @@ class TelegramController extends Controller
                         'text' => "Топ продаж поки що порожній."
                     ]);
                 }
+                $this->sendMainMenu($chatId);
+                break;
+            case (preg_match('/^🛒 Корзина/', $text) ? true : false):
+                $this->showCart($chatId);
+                break;
+            case '💳 Оформити замовлення':
+                $this->checkoutCart($chatId);
+                break;
+            case '🗑 Очистити корзину':
+                $this->clearCart($chatId);
+                break;
+            case '⬅️ Назад до меню':
                 $this->sendMainMenu($chatId);
                 break;
             case '📘 Як замовити':
@@ -318,7 +631,8 @@ class TelegramController extends Controller
                 $caption .= "💰 {$product->price} грн";
                 $inlineKeyboard = [
                     [
-                        ['text' => '🛒 Придбати', 'callback_data' => 'buy_product_' . $product->id]
+                        ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_' . $product->id],
+                        ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
                     ]
                 ];
 
@@ -370,17 +684,49 @@ class TelegramController extends Controller
         if (str_starts_with($data, 'buy_product_')) {
             $productId = (int)str_replace('buy_product_', '', $data);
             $member = Member::where('telegram_id', $chatId)->first();
-            if ($member) {
-                Order::create([
+            $product = Product::find($productId);
+            
+            if ($member && $product) {
+                // Створюємо замовлення
+                $order = Order::create([
                     'member_id' => $member->id,
-                    'product_id' => $productId,
                     'status' => 'new',
+                    'total_amount' => $product->price,
+                    'source' => 'direct',
+                    'notes' => 'Пряме замовлення товару'
+                ]);
+
+                // Створюємо товар замовлення
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $productId,
+                    'quantity' => 1,
+                    'price' => $product->price
                 ]);
             }
+            
             Telegram::sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'Дякуємо за замовлення! Менеджер звʼяжеться з вами найближчим часом.'
+                'text' => "✅ Замовлення успішно створено!\n\n📋 Номер замовлення: {$order->order_number}\n💰 Сума: {$order->formatted_total}\n\nМенеджер звʼяжеться з вами найближчим часом."
             ]);
+            $this->sendMainMenu($chatId);
+        } elseif (str_starts_with($data, 'add_to_cart_')) {
+            $productId = (int)str_replace('add_to_cart_', '', $data);
+            $this->addToCart($chatId, $productId);
+        } elseif (str_starts_with($data, 'remove_from_cart_')) {
+            $productId = (int)str_replace('remove_from_cart_', '', $data);
+            $this->removeFromCart($chatId, $productId);
+        } elseif (str_starts_with($data, 'increase_quantity_')) {
+            $productId = (int)str_replace('increase_quantity_', '', $data);
+            $this->changeQuantity($chatId, $productId, 1);
+        } elseif (str_starts_with($data, 'decrease_quantity_')) {
+            $productId = (int)str_replace('decrease_quantity_', '', $data);
+            $this->changeQuantity($chatId, $productId, -1);
+        } elseif ($data === 'checkout_cart') {
+            $this->checkoutCart($chatId);
+        } elseif ($data === 'clear_cart') {
+            $this->clearCart($chatId);
+        } elseif ($data === 'back_to_menu') {
             $this->sendMainMenu($chatId);
         }
     }
