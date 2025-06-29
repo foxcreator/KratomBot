@@ -23,6 +23,9 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth'])->group(function ()
     Route::resource('brands', App\Http\Controllers\Admin\BrandController::class)->except(['show']);
     Route::resource('products', App\Http\Controllers\Admin\ProductController::class)->except(['show']);
     Route::get('/orders', [App\Http\Controllers\Admin\OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/{id}', [App\Http\Controllers\Admin\OrderController::class, 'show'])->name('orders.show');
+    Route::patch('orders/{order}/status', [App\Http\Controllers\Admin\OrderController::class, 'updateStatus'])->name('orders.update-status');
+    Route::patch('orders/{order}/notes', [App\Http\Controllers\Admin\OrderController::class, 'updateNotes'])->name('orders.update-notes');
     Route::post('/orders/change-status/{id}', [App\Http\Controllers\Admin\OrderController::class, 'changeStatus'])->name('orders.change-status');
     Route::post('/members/{member}/send-message', [\App\Http\Controllers\Admin\MemberController::class, 'sendMessage'])->name('members.sendMessage');
 });

@@ -3,28 +3,41 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Order;
+use App\Models\OrderItem;
+use Illuminate\Http\Request;
 
 class OrderController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $ordersQuery = Order::query();
-        if ($request->filled('username')) {
-            $ordersQuery->whereHas('member', function($q) use ($request) {
-                $q->where('username', 'like', '%' . $request->username . '%');
-            });
-        }
-        $orders = $ordersQuery->paginate(30);
+        $orders = Order::with(['member', 'orderItems.product'])
+                      ->orderBy('created_at', 'desc')
+                      ->paginate(20);
+
         return view('admin.orders.index', compact('orders'));
     }
 
-    public function changeStatus($id)
+    public function show($id)
     {
-        $order = Order::find($id);
-        $order->status = 'completed';
-        $order->save();
-        return redirect()->back();
+        $order = Order::with(['member', 'orderItems.product'])->findOrFail($id);
+        
+        return view('admin.orders.show', compact('order'));
+    }
+
+    public function updateStatus(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+        $order->update(['status' => $request->status]);
+        
+        return redirect()->back()->with('success', 'Статус замовлення оновлено');
+    }
+
+    public function updateNotes(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+        $order->update(['notes' => $request->notes]);
+        
+        return redirect()->back()->with('success', 'Примітки оновлено');
     }
 }
