@@ -64,7 +64,7 @@
                                         <td><strong>Username:</strong></td>
                                         <td>
                                             @if($order->member->username)
-                                                @{{ $order->member->username }}
+                                                {{ '@' . $order->member->username }}
                                             @else
                                                 <span class="text-muted">Не вказано</span>
                                             @endif
@@ -111,7 +111,12 @@
                                 @foreach($order->orderItems as $item)
                                 <tr>
                                     <td>
-                                        <strong>{{ $item->product->name }}</strong>
+                                        <strong>
+                                            {{ $item->product->name }}
+                                            @if($item->productOption)
+                                                ({{ $item->productOption->name }})
+                                            @endif
+                                        </strong>
                                         @if($item->product->description)
                                             <br><small class="text-muted">{{ Str::limit($item->product->description, 100) }}</small>
                                         @endif
