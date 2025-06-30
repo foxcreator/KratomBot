@@ -34,7 +34,6 @@ class ProductController extends Controller
 
         $product = Product::create($validated);
 
-        // Зберігаємо варіанти товару
         if ($request->has('options')) {
             foreach ($request->options as $option) {
                 if (!empty($option['name']) && !empty($option['price'])) {
@@ -67,13 +66,11 @@ class ProductController extends Controller
         }
         $product->update($validated);
 
-        // Оновлюємо/додаємо/видаляємо варіанти товару
         $optionIds = [];
         if ($request->has('options')) {
             foreach ($request->options as $key => $option) {
                 if (!empty($option['name']) && !empty($option['price'])) {
                     if (isset($option['id'])) {
-                        // update
                         $productOption = $product->options()->where('id', $option['id'])->first();
                         if ($productOption) {
                             $productOption->update([
@@ -83,7 +80,6 @@ class ProductController extends Controller
                             $optionIds[] = $productOption->id;
                         }
                     } else {
-                        // create
                         $newOption = $product->options()->create([
                             'name' => $option['name'],
                             'price' => $option['price'],
@@ -93,9 +89,8 @@ class ProductController extends Controller
                 }
             }
         }
-        // Видаляємо ті варіанти, яких немає у формі
-        $product->options()->whereNotIn('id', $optionIds)->delete();
 
+        $product->options()->whereNotIn('id', $optionIds)->delete();
         return redirect()->route('admin.products.index')->with('success', 'Продукт оновлено!');
     }
 
