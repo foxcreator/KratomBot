@@ -15,6 +15,11 @@ class Member extends Model
         'is_subscribed',
         'username',
         'current_brand_id',
+        'checkout_state',
+    ];
+
+    protected $casts = [
+        'checkout_state' => 'array',
     ];
 
     public function promocode()
