@@ -23,6 +23,17 @@ class TelegramController extends Controller
     protected $channelsUsername;
     protected $settings;
 
+    // Додаю константи для станів оформлення
+    const CHECKOUT_STATE = [
+        'AWAIT_PAYMENT_TYPE' => 'await_payment_type',
+        'AWAIT_RECEIPT_PHOTO' => 'await_receipt_photo',
+        'AWAIT_SHIPPING_PHONE' => 'await_shipping_phone',
+        'AWAIT_SHIPPING_CITY' => 'await_shipping_city',
+        'AWAIT_SHIPPING_CARRIER' => 'await_shipping_carrier',
+        'AWAIT_SHIPPING_OFFICE' => 'await_shipping_office',
+        'AWAIT_SHIPPING_NAME' => 'await_shipping_name',
+    ];
+
     public function __construct()
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
@@ -54,6 +65,21 @@ class TelegramController extends Controller
                     ['telegram_id' => $chatId],
                     ['username' => $username]
                 );
+
+                // Додаю обробку фото
+                if ($update->getMessage()->has('photo')) {
+                    $photoSizes = $update->getMessage()->get('photo');
+                    \Log::info('webhook: photoSizes', ['type' => gettype($photoSizes), 'photoSizes' => $photoSizes]);
+                    if ($photoSizes instanceof \Illuminate\Support\Collection) {
+                        $photoSizes = $photoSizes->toArray();
+                    }
+                    if (is_array($photoSizes) && count($photoSizes) > 0) {
+                        $largestPhoto = $photoSizes[array_key_last($photoSizes)];
+                        \Log::info('webhook: largestPhoto', ['largestPhoto' => $largestPhoto]);
+                        $this->handlePhoto($chatId, $largestPhoto);
+                        return;
+                    }
+                }
 
                 if ($text === '/start') {
                     $this->sendWelcome($chatId, $username);
@@ -171,6 +197,34 @@ class TelegramController extends Controller
             ]);
             return;
         }
+        // Перевіряємо, чи це перше замовлення (немає жодного completed/cancelled)
+        $hasOrders = Order::where('member_id', $member->id)->exists();
+        $keyboard = [
+            [['text' => '💳 Передплата', 'callback_data' => 'pay_type_prepaid']],
+        ];
+        if (!$hasOrders) {
+            $keyboard[] = [['text' => '🚚 Накладений платіж', 'callback_data' => 'pay_type_cod']];
+        }
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => "Оберіть спосіб оплати:\n\n<b>Передплата</b> — оплата на картку, після чого ви надсилаєте фото квитанції.\n<b>Накладений платіж</b> — оплата при отриманні (доступно лише для першого замовлення).",
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_PAYMENT_TYPE'];
+        $state['cart_snapshot'] = $member->cartItems->map(function($item) {
+            return [
+                'product_id' => $item->product_id,
+                'product_option_id' => $item->product_option_id,
+                'quantity' => $item->quantity,
+            ];
+        })->toArray();
+        $state['total'] = $member->cartItems->sum(function($item) {
+            return $item->quantity * ($item->productOption ? $item->productOption->price : $item->product->price);
+        });
+        $member->checkout_state = $state;
+        $member->save();
 
         $activeOrders = Order::where('member_id', $member->id)
             ->whereIn('status', ['new', 'processing'])
@@ -433,6 +487,58 @@ class TelegramController extends Controller
     private function handleText($chatId, $text)
     {
         $member = Member::where('telegram_id', $chatId)->first();
+        if ($member && $member->checkout_state && isset($member->checkout_state['step'])) {
+            $state = $member->checkout_state;
+            $step = $state['step'];
+            if ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE']) {
+                $state['shipping_phone'] = $text;
+                $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_CITY'];
+                $member->checkout_state = $state;
+                $member->save();
+                Telegram::sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "Введіть місто для відправки:"
+                ]);
+                return;
+            } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_CITY']) {
+                $state['shipping_city'] = $text;
+                $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_CARRIER'];
+                $member->checkout_state = $state;
+                $member->save();
+                Telegram::sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "Оберіть поштового оператора:",
+                    'reply_markup' => json_encode(['keyboard' => [['Нова Пошта'], ['Укрпошта']], 'resize_keyboard' => true])
+                ]);
+                return;
+            } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_CARRIER']) {
+                $state['shipping_carrier'] = $text;
+                $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE'];
+                $member->checkout_state = $state;
+                $member->save();
+                Telegram::sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "Введіть номер відділення:"
+                ]);
+                return;
+            } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE']) {
+                $state['shipping_office'] = $text;
+                $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_NAME'];
+                $member->checkout_state = $state;
+                $member->save();
+                Telegram::sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "Введіть ПІБ отримувача:"
+                ]);
+                return;
+            } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_NAME']) {
+                $state['shipping_name'] = $text;
+                $member->checkout_state = $state;
+                $member->save();
+                $this->finalizeOrder($chatId, 'cod');
+                return;
+            }
+        }
         $replacements = ['username' => ($member && $member->username) ? '@' . $member->username : ''];
 
         switch ($text) {
@@ -738,9 +844,9 @@ class TelegramController extends Controller
                 if (!empty($product->image_url)) {
                     $localPath = public_path($product->image_url);
                     if (file_exists($localPath)) {
-                        $photo = \Telegram\Bot\FileUpload\InputFile::create($localPath, basename($localPath));
+                        $photo = InputFile::create($localPath, basename($localPath));
                     } else {
-                        $photo = $product->image_url;
+                        $photo = InputFile::create($product->image_url, basename($product->image_url));
                     }
                     Telegram::sendPhoto([
                         'chat_id' => $chatId,
@@ -883,6 +989,12 @@ class TelegramController extends Controller
         } elseif (str_starts_with($data, 'show_subcategory_')) {
             $subcategoryId = (int)str_replace('show_subcategory_', '', $data);
             $this->sendSubcategoryProductsMenu($chatId, $subcategoryId);
+        } elseif ($data === 'pay_type_prepaid') {
+            $this->startPrepaidCheckout($chatId);
+            return;
+        } elseif ($data === 'pay_type_cod') {
+            $this->startCodCheckout($chatId);
+            return;
         }
     }
 
@@ -990,6 +1102,119 @@ class TelegramController extends Controller
             'callback_query_id' => $this->getCallbackQueryId(),
             'text' => "✅ {$product->name} ({$option->name}) додано в корзину"
         ]);
+    }
+
+    private function startPrepaidCheckout($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_RECEIPT_PHOTO'];
+        $member->checkout_state = $state;
+        $member->save();
+        $requisites = $this->settings['payment'] ?? 'Реквізити для оплати: ...';
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => "<b>Оплата замовлення</b>\n\n$requisites\n\nПісля оплати надішліть фото квитанції у цей чат.",
+            'parse_mode' => 'HTML',
+        ]);
+    }
+
+    private function startCodCheckout($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE'];
+        $member->checkout_state = $state;
+        $member->save();
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => "Введіть номер телефону для відправки (у форматі +380...)"
+        ]);
+    }
+
+    private function finalizeOrder($chatId, $paymentType)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $state = $member->checkout_state;
+        $cartSnapshot = $state['cart_snapshot'] ?? [];
+        $total = $state['total'] ?? 0;
+        $order = Order::create([
+            'member_id' => $member->id,
+            'status' => 'new',
+            'total_amount' => $total,
+            'source' => 'cart',
+            'notes' => 'Замовлення з бота',
+            'payment_type' => $paymentType,
+            'payment_receipt' => $state['payment_receipt'] ?? null,
+            'shipping_phone' => $state['shipping_phone'] ?? null,
+            'shipping_city' => $state['shipping_city'] ?? null,
+            'shipping_carrier' => $state['shipping_carrier'] ?? null,
+            'shipping_office' => $state['shipping_office'] ?? null,
+            'shipping_name' => $state['shipping_name'] ?? null,
+        ]);
+        foreach ($cartSnapshot as $item) {
+            OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $item['product_id'],
+                'product_option_id' => $item['product_option_id'],
+                'quantity' => $item['quantity'],
+                'price' => $item['product_option_id'] ? ProductOption::find($item['product_option_id'])->price : Product::find($item['product_id'])->price,
+            ]);
+        }
+        $member->cartItems()->delete();
+        $member->checkout_state = null;
+        $member->save();
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => "✅ Замовлення успішно оформлено!\n\nМенеджер звʼяжеться з вами найближчим часом.",
+            'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
+        ]);
+    }
+
+    public function handlePhoto($chatId, $photo)
+    {
+        \Log::info('handlePhoto: start', ['chatId' => $chatId, 'photo' => $photo]);
+        $member = Member::where('telegram_id', $chatId)->first();
+        if ($member && $member->checkout_state && isset($member->checkout_state['step']) && $member->checkout_state['step'] === self::CHECKOUT_STATE['AWAIT_RECEIPT_PHOTO']) {
+            $state = $member->checkout_state;
+            $fileId = $photo['file_id'] ?? null;
+            \Log::info('handlePhoto: fileId', ['fileId' => $fileId]);
+            if ($fileId) {
+                try {
+                    $file = Telegram::getFile(['file_id' => $fileId]);
+                    $filePath = $file->get('file_path');
+                    \Log::info('handlePhoto: filePath', ['filePath' => $filePath]);
+                    $localPath = storage_path('app/public/payments/' . uniqid('receipt_') . '.jpg');
+                    $url = 'https://api.telegram.org/file/bot' . env('TELEGRAM_BOT_TOKEN') . '/' . $filePath;
+                    \Log::info('handlePhoto: url', ['url' => $url, 'localPath' => $localPath]);
+                    $fileContent = @file_get_contents($url);
+                    if ($fileContent === false) {
+                        \Log::error('handlePhoto: file_get_contents failed', ['url' => $url]);
+                    } else {
+                        $result = @file_put_contents($localPath, $fileContent);
+                        \Log::info('handlePhoto: file_put_contents', ['result' => $result, 'localPath' => $localPath]);
+                        if ($result === false) {
+                            \Log::error('handlePhoto: file_put_contents failed', ['localPath' => $localPath]);
+                        } else {
+                            $state['payment_receipt'] = basename($localPath);
+                            $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE'];
+                            $member->checkout_state = $state;
+                            $member->save();
+                            \Log::info('handlePhoto: state updated', ['state' => $state]);
+                            Telegram::sendMessage([
+                                'chat_id' => $chatId,
+                                'text' => "Дякуємо! Тепер введіть номер телефону для відправки (у форматі +380...):"
+                            ]);
+                            return;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('handlePhoto: exception', ['error' => $e->getMessage()]);
+                }
+            }
+        }
+        \Log::info('handlePhoto: end (no action)', ['chatId' => $chatId]);
+        // ... існуючий handlePhoto ...
     }
 
     private function getCartButton($chatId)

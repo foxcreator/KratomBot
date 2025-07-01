@@ -16,7 +16,14 @@ class Order extends Model
         'status', 
         'total_amount', 
         'notes', 
-        'source'
+        'source',
+        'payment_type',
+        'payment_receipt',
+        'shipping_phone',
+        'shipping_city',
+        'shipping_carrier',
+        'shipping_office',
+        'shipping_name',
     ];
 
     protected $casts = [
