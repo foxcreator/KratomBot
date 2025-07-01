@@ -184,7 +184,7 @@ class TelegramController extends Controller
             ]);
             return;
         }
-        // Перевіряємо, чи це перше замовлення (немає жодного completed/cancelled)
+        
         $hasOrders = Order::where('member_id', $member->id)->exists();
         $keyboard = [
             [['text' => '💳 Передплата', 'callback_data' => 'pay_type_prepaid']],
@@ -376,7 +376,6 @@ class TelegramController extends Controller
 
         $message .= "💰 <b>Загальна сума: {$total} грн</b>";
 
-        // Додаємо кнопки для загальних дій з корзиною
         $inlineKeyboard[] = [
             ['text' => '💳 Оформити замовлення', 'callback_data' => 'checkout_cart'],
             ['text' => '🗑 Очистити корзину', 'callback_data' => 'clear_cart']
@@ -796,46 +795,15 @@ class TelegramController extends Controller
             }
         } elseif (str_starts_with($data, 'buy_product_option_')) {
             $optionId = (int)str_replace('buy_product_option_', '', $data);
-            $this->buyProductOption($chatId, $optionId);
+            $this->checkoutDirectProductOption($chatId, $optionId);
+            return;
         } elseif (str_starts_with($data, 'add_to_cart_option_')) {
             $optionId = (int)str_replace('add_to_cart_option_', '', $data);
             $this->addToCartOption($chatId, $optionId);
         } elseif (str_starts_with($data, 'buy_product_')) {
             $productId = (int)str_replace('buy_product_', '', $data);
-            $member = Member::where('telegram_id', $chatId)->first();
-            $product = Product::find($productId);
-            $activeOrders = Order::where('member_id', $member->id)
-                        ->whereIn('status', ['new', 'processing'])
-                        ->count();
-            if ($activeOrders == 0) {
-                if ($member && $product) {
-                    $order = Order::create([
-                        'member_id' => $member->id,
-                        'status' => 'new',
-                        'total_amount' => $product->price,
-                        'source' => 'direct',
-                        'notes' => 'Пряме замовлення товару'
-                    ]);
-
-                    OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $productId,
-                        'quantity' => 1,
-                        'price' => $product->price
-                    ]);
-                }
-            
-                Telegram::sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => "✅ Замовлення успішно створено!\n\n📋 Номер замовлення: {$order->order_number}\n💰 Сума: {$order->formatted_total}\n\nМенеджер звʼяжеться з вами протягом 15 хвилин."
-                ]);
-                $this->sendMainMenu($chatId);
-            } else {
-                Telegram::sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => "У вас вже є активне замовлення. Менеджер звʼяжеться з вами протягом 15 хвилин."
-                ]);
-            }
+            $this->checkoutDirectProduct($chatId, $productId);
+            return;
         } elseif (str_starts_with($data, 'add_to_cart_')) {
             $productId = (int)str_replace('add_to_cart_', '', $data);
             $this->addToCart($chatId, $productId);
@@ -976,7 +944,7 @@ class TelegramController extends Controller
         $state['step'] = self::CHECKOUT_STATE['AWAIT_RECEIPT_PHOTO'];
         $member->checkout_state = $state;
         $member->save();
-        $requisites = $this->settings['payment'] ?? 'Реквізити для оплати: ...';
+        $requisites = $this->settings['payments'] ?? 'Реквізити для оплати: ...';
         Telegram::sendMessage([
             'chat_id' => $chatId,
             'text' => "<b>Оплата замовлення</b>\n\n$requisites\n\nПісля оплати надішліть фото квитанції у цей чат.",
@@ -1036,7 +1004,7 @@ class TelegramController extends Controller
         ]);
     }
 
-    public function handlePhoto($chatId, $photo)
+    private function handlePhoto($chatId, $photo)
     {
         \Log::info('handlePhoto: start', ['chatId' => $chatId, 'photo' => $photo]);
         $member = Member::where('telegram_id', $chatId)->first();
@@ -1080,5 +1048,66 @@ class TelegramController extends Controller
         }
         \Log::info('handlePhoto: end (no action)', ['chatId' => $chatId]);
         // ... існуючий handlePhoto ...
+    }
+
+    private function checkoutDirectProduct($chatId, $productId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $product = Product::find($productId);
+        if (!$member || !$product) return;
+        $hasOrders = Order::where('member_id', $member->id)->exists();
+        $keyboard = [
+            [['text' => '💳 Передплата', 'callback_data' => 'pay_type_prepaid']],
+        ];
+        if (!$hasOrders) {
+            $keyboard[] = [['text' => '🚚 Накладений платіж', 'callback_data' => 'pay_type_cod']];
+        }
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => "Оберіть спосіб оплати:\n\n<b>Передплата</b> — оплата на картку, після чого ви надсилаєте фото квитанції.\n<b>Накладений платіж</b> — оплата при отриманні (доступно лише для першого замовлення).",
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_PAYMENT_TYPE'];
+        $state['cart_snapshot'] = [[
+            'product_id' => $product->id,
+            'product_option_id' => null,
+            'quantity' => 1,
+        ]];
+        $state['total'] = $product->price;
+        $member->checkout_state = $state;
+        $member->save();
+    }
+
+    private function checkoutDirectProductOption($chatId, $optionId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $option = ProductOption::find($optionId);
+        $product = $option ? $option->product : null;
+        if (!$member || !$option || !$product) return;
+        $hasOrders = Order::where('member_id', $member->id)->exists();
+        $keyboard = [
+            [['text' => '💳 Передплата', 'callback_data' => 'pay_type_prepaid']],
+        ];
+        if (!$hasOrders) {
+            $keyboard[] = [['text' => '🚚 Накладений платіж', 'callback_data' => 'pay_type_cod']];
+        }
+        Telegram::sendMessage([
+            'chat_id' => $chatId,
+            'text' => "Оберіть спосіб оплати:\n\n<b>Передплата</b> — оплата на картку, після чого ви надсилаєте фото квитанції.\n<b>Накладений платіж</b> — оплата при отриманні (доступно лише для першого замовлення).",
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_PAYMENT_TYPE'];
+        $state['cart_snapshot'] = [[
+            'product_id' => $product->id,
+            'product_option_id' => $option->id,
+            'quantity' => 1,
+        ]];
+        $state['total'] = $option->price;
+        $member->checkout_state = $state;
+        $member->save();
     }
 }

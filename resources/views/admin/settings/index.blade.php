@@ -34,6 +34,10 @@
                             <textarea name="payment" rows="5" class="form-control" id="payment" placeholder="Введите текст">{{ $settings['payment'] ?? '' }}</textarea>
                         </div>
                         <div class="form-group">
+                            <label for="payments">Реквізити для оплати</label>
+                            <textarea name="payments" rows="5" class="form-control" id="payments" placeholder="Введіть реквізити для оплати">{{ $settings['payments'] ?? '' }}</textarea>
+                        </div>
+                        <div class="form-group">
                             <label for="reviews">Відгуки</label>
                             <textarea name="reviews" rows="5" class="form-control" id="reviews" placeholder="Введите текст">{{ $settings['reviews'] ?? '' }}</textarea>
                         </div>
