@@ -34,4 +34,9 @@ class Product extends Model
     {
         return $this->hasMany(Order::class);
     }
+
+    public function options()
+    {
+        return $this->hasMany(ProductOption::class);
+    }
 }

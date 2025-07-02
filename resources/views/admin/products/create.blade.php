@@ -66,7 +66,7 @@
                         <span class="invalid-feedback">{{ $message }}</span>
                     @enderror
                 </div>
-            
+
                 <div class="form-group">
                     <label for="image">Зображення (файл)</label>
                     <input type="file" name="image" class="form-control-file @error('image') is-invalid @enderror">
@@ -74,12 +74,43 @@
                         <span class="invalid-feedback d-block">{{ $message }}</span>
                     @enderror
                 </div>
+                <div class="form-group mt-4">
+                    <label><b>Варіанти товару (грамовка, смак тощо)</b></label>
+                    <table class="table table-bordered" id="options-table">
+                        <thead>
+                            <tr>
+                                <th>Назва варіанту</th>
+                                <th>Ціна</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-primary btn-sm" id="add-option">Додати варіант</button>
+                </div>
                 <button type="submit" class="btn btn-success">Зберегти</button>
                 <a href="{{ route('admin.products.index') }}" class="btn btn-secondary">Назад</a>
             </form>
         </div>
     </div>
 </div>
+@endsection
+<script>
+    document.getElementById('add-option').onclick = function() {
+        let table = document.getElementById('options-table').getElementsByTagName('tbody')[0];
+        let idx = 'new_' + Math.random().toString(36).substr(2, 9);
+        let row = table.insertRow();
+        row.innerHTML = `<td><input type="text" name="options[${idx}][name]" class="form-control" required></td>` +
+                        `<td><input type="number" step="0.01" name="options[${idx}][price]" class="form-control" required></td>` +
+                        `<td><button type="button" class="btn btn-danger btn-sm remove-option">Видалити</button></td>`;
+    };
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('remove-option')) {
+            e.target.closest('tr').remove();
+        }
+    });
+</script>
 @endsection
 
 @push('scripts')
@@ -99,4 +130,4 @@
         filterSubcategories();
     });
 </script>
-@endpush 
+@endpush
