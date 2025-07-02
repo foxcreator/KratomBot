@@ -41,6 +41,18 @@
                             <label for="reviews">Відгуки</label>
                             <textarea name="reviews" rows="5" class="form-control" id="reviews" placeholder="Введите текст">{{ $settings['reviews'] ?? '' }}</textarea>
                         </div>
+                        <div class="form-group">
+                            <label for="telegram_channel_discount">Знижка для підписників Telegram-каналу (%)</label>
+                            <input type="number" min="0" max="100" step="1" name="telegram_channel_discount" class="form-control" id="telegram_channel_discount" placeholder="Введіть відсоток" value="{{ $settings['telegram_channel_discount'] ?? '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="discount_info">Текст для меню 'Отримай знижку'</label>
+                            <textarea name="discount_info" rows="4" class="form-control" id="discount_info" placeholder="Введіть текст">{{ $settings['discount_info'] ?? '' }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="telegram_channel_username">Username Telegram-каналу (наприклад, @auraaashopp)</label>
+                            <input type="text" name="telegram_channel_username" class="form-control" id="telegram_channel_username" placeholder="@auraaashopp" value="{{ $settings['telegram_channel_username'] ?? '' }}">
+                        </div>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-success">Зберегти</button>

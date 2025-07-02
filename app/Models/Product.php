@@ -16,12 +16,18 @@ class Product extends Model
         'price',
         'image_url',
         'brand_id',
+        'subcategory_id',
         'is_top_sales',
     ];
 
     public function brand()
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    public function subcategory()
+    {
+        return $this->belongsTo(Subcategory::class);
     }
 
     public function orders()

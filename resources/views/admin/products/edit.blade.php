@@ -31,6 +31,15 @@
                     @enderror
                 </div>
                 <div class="form-group">
+                    <label for="subcategory_id">Підкатегорія</label>
+                    <select name="subcategory_id" id="subcategory_id" class="form-control">
+                        <option value="">Оберіть підкатегорію</option>
+                        @foreach($subcategories as $subcategory)
+                            <option value="{{ $subcategory->id }}" data-brand="{{ $subcategory->brand_id }}" {{ (old('subcategory_id', $product->subcategory_id) == $subcategory->id) ? 'selected' : '' }}>{{ $subcategory->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="price">Ціна</label>
                     <input type="text" name="price" class="form-control @error('price') is-invalid @enderror" value="{{ old('price', $product->price) }}" required>
                     @error('price')
@@ -105,6 +114,7 @@
         </div>
     </div>
 </div>
+@endsection
 <script>
     document.getElementById('add-option').onclick = function() {
         let table = document.getElementById('options-table').getElementsByTagName('tbody')[0];
@@ -120,4 +130,3 @@
         }
     });
 </script>
-@endsection 
