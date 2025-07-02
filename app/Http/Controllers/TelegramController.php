@@ -563,7 +563,7 @@ class TelegramController extends Controller
                 $state['shipping_name'] = $text;
                 $member->checkout_state = $state;
                 $member->save();
-                $this->finalizeOrder($chatId, 'cod');
+                $this->finalizeOrder($chatId, $state['payment_type'] ?? 'cod');
                 return;
             }
         }
@@ -861,14 +861,6 @@ class TelegramController extends Controller
                         ]
                     ];
                 }
-
-                $caption .= "💰 {$product->price} грн";
-                $inlineKeyboard = [
-                    [
-                        ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_' . $product->id],
-                        ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
-                    ]
-                ];
                 if (!empty($product->image_url)) {
                     $localPath = public_path($product->image_url);
                     if (file_exists($localPath)) {
@@ -1106,6 +1098,7 @@ class TelegramController extends Controller
         $member = Member::where('telegram_id', $chatId)->first();
         $state = $member->checkout_state ?? [];
         $state['step'] = self::CHECKOUT_STATE['AWAIT_RECEIPT_PHOTO'];
+        $state['payment_type'] = 'prepaid';
         $member->checkout_state = $state;
         $member->save();
         $requisites = $this->settings['payments'] ?? 'Реквізити для оплати: ...';
@@ -1121,6 +1114,7 @@ class TelegramController extends Controller
         $member = Member::where('telegram_id', $chatId)->first();
         $state = $member->checkout_state ?? [];
         $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE'];
+        $state['payment_type'] = 'cod';
         $member->checkout_state = $state;
         $member->save();
         Telegram::sendMessage([
@@ -1141,7 +1135,7 @@ class TelegramController extends Controller
             'total_amount' => $total,
             'source' => 'cart',
             'notes' => 'Замовлення з бота',
-            'payment_type' => $paymentType,
+            'payment_type' => $state['payment_type'] ?? $paymentType,
             'payment_receipt' => $state['payment_receipt'] ?? null,
             'shipping_phone' => $state['shipping_phone'] ?? null,
             'shipping_city' => $state['shipping_city'] ?? null,
