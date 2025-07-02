@@ -31,6 +31,15 @@
                     @enderror
                 </div>
                 <div class="form-group">
+                    <label for="subcategory_id">Підкатегорія</label>
+                    <select name="subcategory_id" id="subcategory_id" class="form-control">
+                        <option value="">Оберіть підкатегорію</option>
+                        @foreach($subcategories as $subcategory)
+                            <option value="{{ $subcategory->id }}" data-brand="{{ $subcategory->brand_id }}" {{ (old('subcategory_id', $product->subcategory_id) == $subcategory->id) ? 'selected' : '' }}>{{ $subcategory->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="price">Ціна</label>
                     <input type="text" name="price" class="form-control @error('price') is-invalid @enderror" value="{{ old('price', $product->price) }}" required>
                     @error('price')
@@ -76,4 +85,23 @@
         </div>
     </div>
 </div>
-@endsection 
+@endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const brandSelect = document.querySelector('select[name=brand_id]');
+        const subcatSelect = document.querySelector('select[name=subcategory_id]');
+        function filterSubcategories() {
+            const brandId = brandSelect.value;
+            Array.from(subcatSelect.options).forEach(option => {
+                if (!option.value) return option.style.display = '';
+                option.style.display = option.getAttribute('data-brand') === brandId ? '' : 'none';
+            });
+            subcatSelect.value = '';
+        }
+        brandSelect.addEventListener('change', filterSubcategories);
+        filterSubcategories();
+    });
+</script>
+@endpush 

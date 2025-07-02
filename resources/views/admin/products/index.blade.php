@@ -18,6 +18,7 @@
                         <th>Зображення</th>
                         <th>Назва</th>
                         <th>Категорія</th>
+                        <th>Підкатегорія</th>
                         <th>Ціна</th>
                         <th>Дії</th>
                 </thead>
@@ -32,6 +33,7 @@
                         </td>
                         <td>{{ $product->name }}</td>
                         <td>{{ $product->brand->name ?? '-' }}</td>
+                        <td>{{ $product->subcategory->name ?? '-' }}</td>
                         <td>{{ $product->price }}</td>
                         <td>
                             <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-sm btn-warning">Редагувати</a>

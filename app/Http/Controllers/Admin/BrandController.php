@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use Illuminate\Http\Request;
+use App\Http\Requests\Admin\BrandStoreRequest;
+use App\Http\Requests\Admin\BrandUpdateRequest;
 
 class BrandController extends Controller
 {
@@ -19,13 +21,9 @@ class BrandController extends Controller
         return view('admin.brands.create');
     }
 
-    public function store(Request $request)
+    public function store(BrandStoreRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:brands,name',
-            'description' => 'required|string|max:2000',
-            'price' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
         Brand::create($validated);
         return redirect()->route('admin.brands.index')->with('success', 'Бренд створено!');
     }
@@ -35,13 +33,9 @@ class BrandController extends Controller
         return view('admin.brands.edit', compact('brand'));
     }
 
-    public function update(Request $request, Brand $brand)
+    public function update(BrandUpdateRequest $request, Brand $brand)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:brands,name,' . $brand->id,
-            'description' => 'required|string|max:2000',
-            'price' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
         $brand->update($validated);
         return redirect()->route('admin.brands.index')->with('success', 'Бренд оновлено!');
     }

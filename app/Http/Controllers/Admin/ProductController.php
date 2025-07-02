@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Brand;
 use Illuminate\Http\Request;
+use App\Http\Requests\Admin\ProductStoreRequest;
+use App\Http\Requests\Admin\ProductUpdateRequest;
 
 class ProductController extends Controller
 {
@@ -18,25 +20,17 @@ class ProductController extends Controller
     public function create()
     {
         $brands = Brand::all();
-        return view('admin.products.create', compact('brands'));
+        $subcategories = \App\Models\Subcategory::all();
+        return view('admin.products.create', compact('brands', 'subcategories'));
     }
 
-    public function store(Request $request)
+    public function store(ProductStoreRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'brand_id' => 'required|exists:brands,id',
-            'price' => 'required|numeric',
-            'description' => 'required|string',
-            'image' => 'nullable|image|max:2048',
-            'is_top_sales' => 'nullable|boolean',
-        ]);
-
+        $validated = $request->validated();
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
             $validated['image_url'] = '/storage/' . $path;
         }
-
         Product::create($validated);
         return redirect()->route('admin.products.index')->with('success', 'Продукт створено!');
     }
@@ -44,27 +38,19 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $brands = Brand::all();
-        return view('admin.products.edit', compact('product', 'brands'));
+        $subcategories = \App\Models\Subcategory::all();
+        return view('admin.products.edit', compact('product', 'brands', 'subcategories'));
     }
 
-    public function update(Request $request, Product $product)
+    public function update(ProductUpdateRequest $request, Product $product)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'brand_id' => 'required|exists:brands,id',
-            'price' => 'required|numeric',
-            'description' => 'required|string',
-            'image' => 'nullable|image|max:2048',
-            'is_top_sales' => 'nullable|boolean',
-        ]);
-
+        $validated = $request->validated();
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
             $validated['image_url'] = '/storage/' . $path;
         } else {
             $validated['image_url'] = $product->image_url;
         }
-
         $product->update($validated);
         return redirect()->route('admin.products.index')->with('success', 'Продукт оновлено!');
     }
