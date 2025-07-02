@@ -66,13 +66,28 @@
                         <span class="invalid-feedback">{{ $message }}</span>
                     @enderror
                 </div>
-            
+
                 <div class="form-group">
                     <label for="image">Зображення (файл)</label>
                     <input type="file" name="image" class="form-control-file @error('image') is-invalid @enderror">
                     @error('image')
                         <span class="invalid-feedback d-block">{{ $message }}</span>
                     @enderror
+                </div>
+                <div class="form-group mt-4">
+                    <label><b>Варіанти товару (грамовка, смак тощо)</b></label>
+                    <table class="table table-bordered" id="options-table">
+                        <thead>
+                            <tr>
+                                <th>Назва варіанту</th>
+                                <th>Ціна</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-primary btn-sm" id="add-option">Додати варіант</button>
                 </div>
                 <button type="submit" class="btn btn-success">Зберегти</button>
                 <a href="{{ route('admin.products.index') }}" class="btn btn-secondary">Назад</a>
@@ -99,4 +114,4 @@
         filterSubcategories();
     });
 </script>
-@endpush 
+@endpush

@@ -53,6 +53,42 @@
                                     <td><strong>Загальна сума:</strong></td>
                                     <td><strong class="text-success">{{ $order->formatted_total }}</strong></td>
                                 </tr>
+                                <tr>
+                                    <td><strong>Тип оплати:</strong></td>
+                                    <td>
+                                        @if($order->payment_type === 'prepaid')
+                                            <span class="badge badge-success">Передплата</span>
+                                        @elseif($order->payment_type === 'cod')
+                                            <span class="badge badge-info">Накладений платіж</span>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @if($order->payment_receipt)
+                                <tr>
+                                    <td><strong>Квитанція:</strong></td>
+                                    <td>
+                                        <a href="{{ asset('storage/payments/' . $order->payment_receipt) }}" target="_blank">
+                                            <img src="{{ asset('storage/payments/' . $order->payment_receipt) }}" alt="Квитанція" style="max-width:120px;max-height:120px;border:1px solid #ccc;">
+                                        </a>
+                                    </td>
+                                </tr>
+                                @endif
+                                @if($order->shipping_phone || $order->shipping_city || $order->shipping_carrier || $order->shipping_office || $order->shipping_name)
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="border rounded p-2 bg-light">
+                                            <strong>Дані для відправки:</strong><br>
+                                            @if($order->shipping_name) <b>ПІБ:</b> {{ $order->shipping_name }}<br>@endif
+                                            @if($order->shipping_phone) <b>Телефон:</b> {{ $order->shipping_phone }}<br>@endif
+                                            @if($order->shipping_city) <b>Місто:</b> {{ $order->shipping_city }}<br>@endif
+                                            @if($order->shipping_carrier) <b>Пошта:</b> {{ $order->shipping_carrier }}<br>@endif
+                                            @if($order->shipping_office) <b>Відділення:</b> {{ $order->shipping_office }}<br>@endif
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endif
                             </table>
                         </div>
                         
@@ -64,7 +100,7 @@
                                         <td><strong>Username:</strong></td>
                                         <td>
                                             @if($order->member->username)
-                                                @{{ $order->member->username }}
+                                                {{ '@' . $order->member->username }}
                                             @else
                                                 <span class="text-muted">Не вказано</span>
                                             @endif
@@ -111,7 +147,12 @@
                                 @foreach($order->orderItems as $item)
                                 <tr>
                                     <td>
-                                        <strong>{{ $item->product->name }}</strong>
+                                        <strong>
+                                            {{ $item->product->name }}
+                                            @if($item->productOption)
+                                                ({{ $item->productOption->name }})
+                                            @endif
+                                        </strong>
                                         @if($item->product->description)
                                             <br><small class="text-muted">{{ Str::limit($item->product->description, 100) }}</small>
                                         @endif

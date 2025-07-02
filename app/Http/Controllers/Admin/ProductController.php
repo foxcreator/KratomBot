@@ -31,6 +31,7 @@ class ProductController extends Controller
             $path = $request->file('image')->store('products', 'public');
             $validated['image_url'] = '/storage/' . $path;
         }
+
         Product::create($validated);
         return redirect()->route('admin.products.index')->with('success', 'Продукт створено!');
     }
@@ -52,6 +53,32 @@ class ProductController extends Controller
             $validated['image_url'] = $product->image_url;
         }
         $product->update($validated);
+
+        $optionIds = [];
+        if ($request->has('options')) {
+            foreach ($request->options as $key => $option) {
+                if (!empty($option['name']) && !empty($option['price'])) {
+                    if (isset($option['id'])) {
+                        $productOption = $product->options()->where('id', $option['id'])->first();
+                        if ($productOption) {
+                            $productOption->update([
+                                'name' => $option['name'],
+                                'price' => $option['price'],
+                            ]);
+                            $optionIds[] = $productOption->id;
+                        }
+                    } else {
+                        $newOption = $product->options()->create([
+                            'name' => $option['name'],
+                            'price' => $option['price'],
+                        ]);
+                        $optionIds[] = $newOption->id;
+                    }
+                }
+            }
+        }
+
+        $product->options()->whereNotIn('id', $optionIds)->delete();
         return redirect()->route('admin.products.index')->with('success', 'Продукт оновлено!');
     }
 
@@ -60,4 +87,4 @@ class ProductController extends Controller
         $product->delete();
         return redirect()->route('admin.products.index')->with('success', 'Продукт видалено!');
     }
-} 
+}
