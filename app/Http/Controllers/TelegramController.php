@@ -1204,8 +1204,6 @@ class TelegramController extends Controller
                 }
             }
         }
-        \Log::info('handlePhoto: end (no action)', ['chatId' => $chatId]);
-        // ... існуючий handlePhoto ...
     }
 
     private function checkoutDirectProduct($chatId, $productId)
