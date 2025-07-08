@@ -20,6 +20,7 @@ class Member extends Model
 
     protected $casts = [
         'checkout_state' => 'array',
+        'ui_state' => 'array',
     ];
 
     public function promocode()
