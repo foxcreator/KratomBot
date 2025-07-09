@@ -707,8 +707,11 @@ class TelegramController extends Controller
                 $this->sendBrandProductsMenu($chatId, $brand->id);
                 break;
             default:
+                // --- Вибір бренду через текст ---
                 $brand = Brand::where('name', $text)->first();
                 if ($brand && $member) {
+                    $this->pushHistory($member);
+                    $this->setCurrentState($member, ['type' => 'brand', 'id' => $brand->id]);
                     $member->update(['current_brand_id' => $brand->id]);
                     $this->sendBrandAnalogMenu($chatId, $brand->id);
                     break;
@@ -734,6 +737,7 @@ class TelegramController extends Controller
                 break;
         }
 
+        // --- Вибір підкатегорії через текст ---
         $subcategory = Subcategory::where('name', $text)->first();
         if ($subcategory) {
             $this->sendSubcategoryProductsMenu($chatId, $subcategory->id);
@@ -984,6 +988,10 @@ class TelegramController extends Controller
             if ($prev) {
                 if ($prev['type'] === 'subcategory' && isset($prev['id'])) {
                     $this->sendSubcategoryProductsMenu($chatId, $prev['id']);
+                } elseif ($prev['type'] === 'brand_subcategories' && isset($prev['id'])) {
+                    $this->sendBrandProductsMenu($chatId, $prev['id']);
+                } elseif ($prev['type'] === 'brand' && isset($prev['id'])) {
+                    $this->sendBrandAnalogMenu($chatId, $prev['id']);
                 } elseif ($prev['type'] === 'catalog') {
                     $this->sendCatalogMenu($chatId);
                 } elseif ($prev['type'] === 'main') {
@@ -1007,13 +1015,20 @@ class TelegramController extends Controller
             return;
         } elseif (str_starts_with($data, 'show_subcategory_')) {
             if ($member) {
-                $this->pushHistory($member);
-                $this->setCurrentState($member, ['type' => 'subcategory', 'id' => (int)str_replace('show_subcategory_', '', $data)]);
+                $subcategoryId = (int)str_replace('show_subcategory_', '', $data);
+                $subcategory = Subcategory::find($subcategoryId);
+                if ($subcategory) {
+                    $brandId = $subcategory->brand_id;
+                    $this->setCurrentState($member, ['type' => 'brand_subcategories', 'id' => $brandId]);
+                    $this->pushHistory($member);
+                    $this->setCurrentState($member, ['type' => 'subcategory', 'id' => $subcategoryId]);
+                }
+                $this->sendSubcategoryProductsMenu($chatId, $subcategoryId);
             }
-            $subcategoryId = (int)str_replace('show_subcategory_', '', $data);
-            $this->sendSubcategoryProductsMenu($chatId, $subcategoryId);
         } elseif ($member && str_starts_with($data, 'choose_brand_')) {
             $brandId = (int)str_replace('choose_brand_', '', $data);
+            $this->pushHistory($member);
+            $this->setCurrentState($member, ['type' => 'brand', 'id' => $brandId]);
             $member->update(['current_brand_id' => $brandId]);
             $this->sendBrandAnalogMenu($chatId, $brandId);
             return;
