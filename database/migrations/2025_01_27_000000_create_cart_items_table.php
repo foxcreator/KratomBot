@@ -15,7 +15,6 @@ return new class extends Migration
             $table->integer('quantity')->default(1);
             $table->timestamps();
             
-            // Унікальний індекс для запобігання дублікатів товарів в корзині
             $table->unique(['member_id', 'product_id']);
         });
     }

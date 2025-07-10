@@ -1096,18 +1096,11 @@ class TelegramController extends Controller
             ]);
             return;
         }
-        // Перевірка наявності такого запису
+        
         $cartItem = CartItem::where('member_id', $member->id)
             ->where('product_id', $product->id)
             ->where('product_option_id', $option->id)
             ->first();
-
-        \Log::info('addToCartOption', [
-            'member_id' => $member->id,
-            'product_id' => $product->id,
-            'product_option_id' => $option->id,
-            'existing' => $cartItem ? $cartItem->id : null
-        ]);
 
         if ($cartItem) {
             $cartItem->increment('quantity');
