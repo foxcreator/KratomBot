@@ -172,9 +172,6 @@ class TelegramController extends Controller
             ['text' => '💳 Оформити замовлення', 'callback_data' => 'checkout_cart'],
             ['text' => '🗑 Очистити корзину', 'callback_data' => 'clear_cart']
         ];
-        $inlineKeyboard[] = [
-            ['text' => '⬅️ Назад', 'callback_data' => 'back_to_previous']
-        ];
         Telegram::sendMessage([
             'chat_id' => $chatId,
             'text' => $message,
@@ -648,6 +645,8 @@ class TelegramController extends Controller
                 if ($prev) {
                     if ($prev['type'] === 'subcategory' && isset($prev['id'])) {
                         $this->sendSubcategoryProductsMenu($chatId, $prev['id']);
+                    } elseif ($prev['type'] === 'brand' && isset($prev['id'])) {
+                        $this->sendBrandProductsMenu($chatId, $prev['id']);
                     } elseif ($prev['type'] === 'catalog') {
                         $this->sendCatalogMenu($chatId);
                     } elseif ($prev['type'] === 'main') {
@@ -739,6 +738,10 @@ class TelegramController extends Controller
 
         $subcategory = Subcategory::where('name', $text)->first();
         if ($subcategory) {
+            if ($member) {
+                $this->pushHistory($member);
+                $this->setCurrentState($member, ['type' => 'subcategory', 'id' => $subcategory->id]);
+            }
             $this->sendSubcategoryProductsMenu($chatId, $subcategory->id);
             return;
         }
@@ -982,10 +985,8 @@ class TelegramController extends Controller
             if ($prev) {
                 if ($prev['type'] === 'subcategory' && isset($prev['id'])) {
                     $this->sendSubcategoryProductsMenu($chatId, $prev['id']);
-                } elseif ($prev['type'] === 'brand_subcategories' && isset($prev['id'])) {
-                    $this->sendBrandProductsMenu($chatId, $prev['id']);
                 } elseif ($prev['type'] === 'brand' && isset($prev['id'])) {
-                    $this->sendBrandAnalogMenu($chatId, $prev['id']);
+                    $this->sendBrandProductsMenu($chatId, $prev['id']);
                 } elseif ($prev['type'] === 'catalog') {
                     $this->sendCatalogMenu($chatId);
                 } elseif ($prev['type'] === 'main') {
@@ -1010,13 +1011,8 @@ class TelegramController extends Controller
         } elseif (str_starts_with($data, 'show_subcategory_')) {
             if ($member) {
                 $subcategoryId = (int)str_replace('show_subcategory_', '', $data);
-                $subcategory = Subcategory::find($subcategoryId);
-                if ($subcategory) {
-                    $brandId = $subcategory->brand_id;
-                    $this->setCurrentState($member, ['type' => 'brand_subcategories', 'id' => $brandId]);
-                    $this->pushHistory($member);
-                    $this->setCurrentState($member, ['type' => 'subcategory', 'id' => $subcategoryId]);
-                }
+                $this->pushHistory($member);
+                $this->setCurrentState($member, ['type' => 'subcategory', 'id' => $subcategoryId]);
                 $this->sendSubcategoryProductsMenu($chatId, $subcategoryId);
             }
         } elseif ($member && str_starts_with($data, 'choose_brand_')) {
