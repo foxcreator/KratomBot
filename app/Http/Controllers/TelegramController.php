@@ -125,12 +125,12 @@ class TelegramController extends Controller
         if (!$member || $member->cartItems->isEmpty()) {
             Telegram::sendMessage([
                 'chat_id' => $chatId,
-                'text' => '🛒 Ваша корзина порожня',
+                'text' => '🛒 Ваш кошик порожній',
                 'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
             ]);
             return;
         }
-        $message = "🛒 <b>Ваша корзина:</b>\n\n";
+        $message = "🛒 <b>Ваш кошик:</b>\n\n";
         $total = 0;
         $inlineKeyboard = [];
         foreach ($member->cartItems as $item) {
@@ -189,7 +189,7 @@ class TelegramController extends Controller
         if (!$member || $member->cartItems->isEmpty()) {
             Telegram::answerCallbackQuery([
                 'callback_query_id' => $this->getCallbackQueryId(),
-                'text' => 'Корзина порожня'
+                'text' => 'Кошик порожній'
             ]);
             return;
         }
@@ -262,12 +262,12 @@ class TelegramController extends Controller
 
         Telegram::answerCallbackQuery([
             'callback_query_id' => $this->getCallbackQueryId(),
-            'text' => 'Корзина очищена'
+            'text' => 'Кошик очищений'
         ]);
 
         Telegram::sendMessage([
             'chat_id' => $chatId,
-            'text' => '🗑 Корзина очищена',
+            'text' => '🗑 Кошик очищений',
             'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
         ]);
     }
@@ -376,13 +376,13 @@ class TelegramController extends Controller
         if (!$member || $member->cartItems->isEmpty()) {
             Telegram::sendMessage([
                 'chat_id' => $chatId,
-                'text' => '🛒 Ваша корзина порожня',
+                'text' => '🛒 Ваш кошик порожній',
                 'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
             ]);
             return;
         }
 
-        $message = "🛒 <b>Ваша корзина:</b>\n\n";
+        $message = "🛒 <b>Ваш кошик:</b>\n\n";
         $total = 0;
         $inlineKeyboard = [];
 
@@ -590,7 +590,7 @@ class TelegramController extends Controller
                 }
                 $this->sendMainMenu($chatId);
                 break;
-            case (preg_match('/^🛒 Корзина/', $text) ? true : false):
+            case (preg_match('/^🛒 Кошик/', $text) ? true : false):
                 $this->showCart($chatId);
                 break;
             case '💳 Оформити замовлення':
@@ -1399,7 +1399,7 @@ class TelegramController extends Controller
     {
         $member = Member::where('telegram_id', $chatId)->first();
         $cartCount = $member ? $member->cart_items_count : 0;
-        return ['🛒 Корзина' . ($cartCount > 0 ? " ({$cartCount})" : '')];
+        return ['🛒 Кошик' . ($cartCount > 0 ? " ({$cartCount})" : '')];
     }
 
     private function isUserSubscribedToChannel($chatId)
