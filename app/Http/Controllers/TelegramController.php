@@ -1415,6 +1415,7 @@ class TelegramController extends Controller
             Log::info($member->status);
             return $member->status !== 'left';
         } catch (\Exception $e) {
+            Log::error($e->getMessage());
             return false;
         }
     }
