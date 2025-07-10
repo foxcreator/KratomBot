@@ -641,7 +641,7 @@ class TelegramController extends Controller
                     $this->pushHistory($member);
                     $this->setCurrentState($member, ['type' => 'analogs']);
                 }
-                $this->sendAnalogsMenu($chatId);
+                
                 break;
             case '⬅️ Назад':
                 $prev = $this->popHistory($member);
@@ -653,7 +653,7 @@ class TelegramController extends Controller
                     } elseif ($prev['type'] === 'main') {
                         $this->sendMainMenu($chatId);
                     } elseif ($prev['type'] === 'analogs') {
-                        $this->sendAnalogsMenu($chatId);
+                        
                     } elseif ($prev['type'] === 'moringa') {
                         $this->sendMoringaMenu($chatId);
                     } else {
@@ -733,7 +733,7 @@ class TelegramController extends Controller
                     $this->sendMainMenu($chatId);
                     break;
                 }
-                $this->sendAnalogsMenu($chatId);
+                
                 break;
         }
 
@@ -991,7 +991,7 @@ class TelegramController extends Controller
                 } elseif ($prev['type'] === 'main') {
                     $this->sendMainMenu($chatId);
                 } elseif ($prev['type'] === 'analogs') {
-                    $this->sendAnalogsMenu($chatId);
+                    
                 } elseif ($prev['type'] === 'moringa') {
                     $this->sendMoringaMenu($chatId);
                 } else {
