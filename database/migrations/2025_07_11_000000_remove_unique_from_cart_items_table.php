@@ -17,7 +17,7 @@ return new class extends Migration
                 $table->dropForeign('cart_items_product_id_foreign');
             }
             // Видаляємо унікальний індекс
-            $table->dropUnique('product_id');
+            $table->dropUnique('cart_items_member_id_product_id_unique');
             // Додаємо foreign key назад (без unique)
             $table->foreign('product_id')->references('id')->on('products');
         });
