@@ -707,7 +707,6 @@ class TelegramController extends Controller
                 $this->sendBrandProductsMenu($chatId, $brand->id);
                 break;
             default:
-                // --- Вибір бренду через текст ---
                 $brand = Brand::where('name', $text)->first();
                 if ($brand && $member) {
                     $this->pushHistory($member);
@@ -737,7 +736,6 @@ class TelegramController extends Controller
                 break;
         }
 
-        // --- Вибір підкатегорії через текст ---
         $subcategory = Subcategory::where('name', $text)->first();
         if ($subcategory) {
             $this->sendSubcategoryProductsMenu($chatId, $subcategory->id);
@@ -779,11 +777,6 @@ class TelegramController extends Controller
             ['🛍 Товари категорії'],
             ['⬅️ Назад', $this->getCartButton($chatId)[0]],
         ];
-    }
-
-    private function sendAnalogsMenu($chatId)
-    {
-        // ... existing code ...
     }
 
     private function sendBrandAnalogMenu($chatId, $brandId)
@@ -1184,7 +1177,7 @@ class TelegramController extends Controller
         $member->checkout_state = $state;
         $member->save();
         $requisites = $this->settings['payments'] ?? 'Реквізити для оплати: ...';
-        // Додаємо суму до оплати
+
         $total = $state['total'] ?? 0;
         $discountPercent = isset($this->settings['telegram_channel_discount']) ? (float)$this->settings['telegram_channel_discount'] : 0;
         $isSubscribed = $this->isUserSubscribedToChannel($chatId);
@@ -1250,7 +1243,7 @@ class TelegramController extends Controller
         $member->checkout_state = null;
         $member->save();
 
-        // Формуємо повідомлення з деталями замовлення
+
         $order->refresh();
         $orderItems = $order->orderItems()->with(['product', 'productOption'])->get();
         $message = "✅ <b>Замовлення успішно оформлено!</b>\n\n";
@@ -1410,12 +1403,14 @@ class TelegramController extends Controller
 
     private function isUserSubscribedToChannel($chatId)
     {
+        
         $channelUsername = $this->settings['telegram_channel_username'] ?? '@auraaashopp';
         try {
             $member = $this->telegram->getChatMember([
                 'chat_id' => $channelUsername,
                 'user_id' => $chatId
             ]);
+            Log::info($member->status);
             return $member->status !== 'left';
         } catch (\Exception $e) {
             return false;
