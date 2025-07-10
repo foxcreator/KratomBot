@@ -1404,8 +1404,9 @@ class TelegramController extends Controller
     private function isUserSubscribedToChannel($chatId)
     {
         
-        Log::info('$member->status');
+        
         $channelUsername = $this->settings['telegram_channel_username'] ?? '@auraaashopp';
+        Log::info($channelUsername);
         try {
             $member = $this->telegram->getChatMember([
                 'chat_id' => $channelUsername,
