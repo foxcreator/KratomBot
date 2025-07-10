@@ -114,7 +114,7 @@
         </div>
     </div>
 </div>
-@endsection
+
 <script>
     document.getElementById('add-option').onclick = function() {
         let table = document.getElementById('options-table').getElementsByTagName('tbody')[0];
@@ -130,3 +130,4 @@
         }
     });
 </script>
+@endsection

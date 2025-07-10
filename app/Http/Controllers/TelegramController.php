@@ -471,7 +471,8 @@ class TelegramController extends Controller
                 $member->save();
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
-                    'text' => "Введіть номер відділення:"
+                    'text' => "Введіть номер відділення:",
+                    'reply_markup' => json_encode(['remove_keyboard' => true])
                 ]);
                 return;
             } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE']) {
