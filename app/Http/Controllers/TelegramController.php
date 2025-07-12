@@ -1167,6 +1167,7 @@ class TelegramController extends Controller
         $member->checkout_state = $state;
         $member->save();
         $requisites = $this->settings['payments'] ?? 'Реквізити для оплати: ...';
+        $requisites = $this->formatCodeBlocks($requisites);
 
         $total = $state['total'] ?? 0;
         $discountPercent = isset($this->settings['telegram_channel_discount']) ? (float)$this->settings['telegram_channel_discount'] : 0;
@@ -1462,5 +1463,13 @@ class TelegramController extends Controller
             $member->save();
         }
         return $prev;
+    }
+
+    private function formatCodeBlocks($text)
+    {
+        // Замінює всі фрагменти в бектиках на <code>...</code>
+        return preg_replace_callback('/`([^`]+)`/', function ($matches) {
+            return '<code>' . htmlspecialchars($matches[1]) . '</code>';
+        }, $text);
     }
 }
