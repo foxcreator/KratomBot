@@ -51,8 +51,18 @@
                                 </tr>
                                 <tr>
                                     <td><strong>Загальна сума:</strong></td>
-                                    <td><strong class="text-success">{{ $order->formatted_total }}</strong></td>
+                                    <td><strong class="text-info">{{ $order->total_amount + $order->discount_amount }} грн</strong></td>
                                 </tr>
+                                @if($order->discount_percent > 0 && $order->discount_amount > 0)
+                                <tr>
+                                    <td><strong>Знижка:</strong></td>
+                                    <td><span class="text-danger">{{ $order->discount_percent }}% (-{{ number_format($order->discount_amount, 2) }} грн)</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Сума зі знижкою:</strong></td>
+                                    <td><strong class="text-success">{{ number_format($order->total_amount, 2) }} грн</strong></td>
+                                </tr>
+                                @endif
                                 <tr>
                                     <td><strong>Тип оплати:</strong></td>
                                     <td>
@@ -141,6 +151,7 @@
                                     <th>Кількість</th>
                                     <th>Ціна за одиницю</th>
                                     <th>Загальна ціна</th>
+                                    <th>Цна зі знижкою</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -160,6 +171,7 @@
                                     <td>{{ $item->quantity }} шт.</td>
                                     <td>{{ number_format($item->price, 2) }} грн</td>
                                     <td><strong>{{ number_format($item->price * $item->quantity, 2) }} грн</strong></td>
+                                    <td class="text-success"><strong>{{ number_format(($item->price * $item->quantity / 100) * (100 - $settings['telegram_channel_discount']), 2) }} грн</strong></td>
                                 </tr>
                                 @endforeach
                             </tbody>

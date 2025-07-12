@@ -1206,6 +1206,14 @@ class TelegramController extends Controller
         $state = $member->checkout_state;
         $cartSnapshot = $state['cart_snapshot'] ?? [];
         $total = $state['total'] ?? 0;
+        $discountPercent = isset($this->settings['telegram_channel_discount']) ? (float)$this->settings['telegram_channel_discount'] : 0;
+        $isSubscribed = $this->isUserSubscribedToChannel($chatId);
+        $discountAmount = 0;
+        $totalWithDiscount = $total;
+        if ($isSubscribed && $discountPercent > 0) {
+            $discountAmount = round($total * $discountPercent / 100, 2);
+            $totalWithDiscount = $total - $discountAmount;
+        }
         $order = Order::create([
             'member_id' => $member->id,
             'status' => 'new',
@@ -1219,6 +1227,8 @@ class TelegramController extends Controller
             'shipping_carrier' => $state['shipping_carrier'] ?? null,
             'shipping_office' => $state['shipping_office'] ?? null,
             'shipping_name' => $state['shipping_name'] ?? null,
+            'discount_percent' => $discountPercent,
+            'discount_amount' => $discountAmount,
         ]);
         foreach ($cartSnapshot as $item) {
             OrderItem::create([
@@ -1233,13 +1243,12 @@ class TelegramController extends Controller
         $member->checkout_state = null;
         $member->save();
 
-
         $order->refresh();
         $orderItems = $order->orderItems()->with(['product', 'productOption'])->get();
         $message = "✅ <b>Замовлення успішно оформлено!</b>\n\n";
         $message .= "📄 <b>Номер замовлення:</b> {$order->order_number}\n";
-        $message .= "💰 <b>Сума:</b> {$order->formatted_total}\n\n";
-        $message .= "<b>Товари у замовленні:</b>\n";
+        
+        $message .= "\n<b>Товари у замовленні:</b>\n";
         foreach ($orderItems as $item) {
             $product = $item->product;
             $option = $item->productOption;
@@ -1251,6 +1260,12 @@ class TelegramController extends Controller
             }
             $message .= "\nКількість: {$item->quantity} шт.\n";
             $message .= "Ціна: {$itemPrice} грн × {$item->quantity} = <b>{$itemTotal} грн</b>\n\n";
+        }
+        if ($discountPercent > 0 && $discountAmount > 0) {
+            $message .= "🎁 <b>Ваша знижка: {$discountPercent}% (-{$discountAmount} грн)</b>\n";
+            $message .= "💸 <b>Сума зі знижкою: {$totalWithDiscount} грн</b>\n";
+        } else {
+            $message .= "💰 <b>Сума:</b> {$order->formatted_total}\n";
         }
         $message .= "Менеджер звʼяжеться з вами найближчим часом.";
         Telegram::sendMessage([

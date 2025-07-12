@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\OrderItem;
 use Illuminate\Http\Request;
+use App\Models\Setting;
 
 class OrderController extends Controller
 {
@@ -21,8 +21,8 @@ class OrderController extends Controller
     public function show($id)
     {
         $order = Order::with(['member', 'orderItems.product', 'orderItems.productOption'])->findOrFail($id);
-        
-        return view('admin.orders.show', compact('order'));
+        $settings = Setting::all()->pluck('value', 'key')->toArray();
+        return view('admin.orders.show', compact('order', 'settings'));
     }
 
     public function updateStatus(Request $request, $id)

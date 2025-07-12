@@ -24,10 +24,14 @@ class Order extends Model
         'shipping_carrier',
         'shipping_office',
         'shipping_name',
+        'discount_percent',
+        'discount_amount',
     ];
 
     protected $casts = [
-        'total_amount' => 'decimal:2'
+        'total_amount' => 'decimal:2',
+        'discount_percent' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
     ];
 
     protected static function boot()
