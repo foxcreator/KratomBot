@@ -31,10 +31,17 @@
                         <span class="invalid-feedback">{{ $message }}</span>
                     @enderror
                 </div>
+                <div class="form-group">
+                    <label for="chat_text">Повідомлення в чат</label>
+                    <textarea name="chat_text" rows="5" class="form-control @error('chat_text') is-invalid @enderror" required>{{ old('chat_text') }}</textarea>
+                    @error('chat_text')
+                        <span class="invalid-feedback">{{ $message }}</span>
+                    @enderror
+                </div>
                 <button type="submit" class="btn btn-success">Зберегти</button>
                 <a href="{{ route('admin.brands.index') }}" class="btn btn-secondary">Назад</a>
             </form>
         </div>
     </div>
 </div>
-@endsection 
+@endsection

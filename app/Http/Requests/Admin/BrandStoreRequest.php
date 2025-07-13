@@ -17,6 +17,7 @@ class BrandStoreRequest extends FormRequest
             'name' => 'required|string|max:255|unique:brands,name',
             'description' => 'nullable|string',
             'price' => 'nullable|string',
+            'chat_text' => 'nullable|string|max:1000',
         ];
     }
-} 
+}
