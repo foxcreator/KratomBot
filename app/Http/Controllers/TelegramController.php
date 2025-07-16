@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Services\TelegramOrderNotifier;
 use App\Models\Member;
 use App\Models\Setting;
 use App\Models\Product;
@@ -9,7 +10,6 @@ use App\Models\CartItem;
 use App\Models\OrderItem;
 use Illuminate\Support\Facades\Log;
 use Telegram\Bot\FileUpload\InputFile;
-use Mockery\Exception;
 use Telegram\Bot\Api;
 use Telegram\Bot\Laravel\Facades\Telegram;
 use App\Models\Order;
@@ -353,7 +353,6 @@ class TelegramController extends Controller
             ]);
         }
 
-        // Оновлюємо відображення корзини
         $this->updateCartMessage($chatId);
     }
 
@@ -396,7 +395,16 @@ class TelegramController extends Controller
             ];
         }
 
+        $discountPercent = isset($this->settings['telegram_channel_discount']) ? (float)$this->settings['telegram_channel_discount'] : 0;
+
         $message .= "💰 <b>Загальна сума: {$total} грн</b>";
+
+        if ($this->isUserSubscribedToChannel($chatId) && $discountPercent > 0) {
+            $discountAmount = round($total * $discountPercent / 100, 2);
+            $totalWithDiscount = $total - $discountAmount;
+            $message .= "\n🎁 <b>Ваша знижка: {$discountPercent}% (-{$discountAmount} грн)</b>";
+            $message .= "\n💸 <b>Сума зі знижкою: {$totalWithDiscount} грн</b>";
+        }
 
         $inlineKeyboard[] = [
             ['text' => '💳 Оформити замовлення', 'callback_data' => 'checkout_cart'],
@@ -406,7 +414,6 @@ class TelegramController extends Controller
             ['text' => '⬅️ Назад', 'callback_data' => 'back_to_previous']
         ];
 
-        // Отримуємо ID повідомлення для оновлення
         $update = Telegram::getWebhookUpdates();
         $messageId = $update->getCallbackQuery()->getMessage()->getMessageId();
 
@@ -1161,6 +1168,7 @@ class TelegramController extends Controller
                 'price' => $item['product_option_id'] ? ProductOption::find($item['product_option_id'])->price : Product::find($item['product_id'])->price,
             ]);
         }
+
         $member->cartItems()->delete();
         $member->checkout_state = null;
         $member->save();
@@ -1190,6 +1198,12 @@ class TelegramController extends Controller
             $message .= "💰 <b>Сума:</b> {$order->formatted_total}\n";
         }
         $message .= "Менеджер звʼяжеться з вами найближчим часом.";
+
+
+        $notify = "🆕 <b>Нове замовлення</b>\n\n👤 Username: {$member->username}\n💰 Сума: $order->formatted_total \n\n" .
+            env('APP_URL') . "/admin/orders/" . $order->id;
+        app(TelegramOrderNotifier::class)->send($notify);
+
         Telegram::sendMessage([
             'chat_id' => $chatId,
             'text' => $message,
