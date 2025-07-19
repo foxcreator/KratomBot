@@ -3,8 +3,7 @@ name: 🚀 Deploy Laravel App
 on:
   push:
     branches:
-      - main
-      - deploy
+      - master
 
 jobs:
   deploy:
