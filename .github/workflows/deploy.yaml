@@ -9,30 +9,38 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      repo_path: "/var/www/kratombot"
-      repo_url: "git@github.com:foxcreator/KratomBot.git"
-
     steps:
-      - name: Ensure repo exists
+      - name: 🛡️ Setup SSH key
         run: |
-          if [ ! -d "$repo_path/.git" ]; then
-          echo "📦 Cloning repository..."
-          git clone $repo_url $repo_path
-          else
-          echo "✅ Repository already exists"
-          fi
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Pull latest code
+      - name: 🚀 Deploy to Server
+        env:
+          REPO_PATH: "/var/www/kratombot"
+          REPO_URL: "git@github.com:foxcreator/KratomBot.git"
         run: |
-          cd $repo_path
-          git reset --hard
-          git pull origin master
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
 
-      - name: Run Laravel commands
-        run: |
-          cd $repo_path
-          php artisan migrate --force
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
+            if [ ! -d "$REPO_PATH/.git" ]; then
+              echo "📦 Cloning repository..."
+              git clone $REPO_URL $REPO_PATH
+            else
+              echo "✅ Repository already exists"
+            fi
+
+            cd $REPO_PATH
+            git reset --hard
+            git pull origin master
+
+            echo "🔧 Running Laravel tasks..."
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            echo "✅ Done!"
+          EOF
