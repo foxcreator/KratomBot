@@ -21,14 +21,8 @@ jobs:
       - name: 🔄 Pull latest code
         run: |
           cd $REPO_PATH
-          if [ ! -d .git ]; then
-            echo "📦 Cloning repository..."
-            git clone git@github.com:foxcreator/KratomBot.git $REPO_PATH
-          else
-            echo "✅ Repository already exists"
             git reset --hard
             git pull origin master
-          fi
 
       - name: 📦 Composer install
         run: |
