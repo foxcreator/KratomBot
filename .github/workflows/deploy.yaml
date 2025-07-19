@@ -1,4 +1,4 @@
-name: 🚀 Deploy Laravel App
+name: 🚀 Deploy Laravel App (Self-Hosted)
 
 on:
   push:
@@ -7,41 +7,33 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kratombot]
 
     env:
       REPO_PATH: "/var/www/kratombot"
-      REPO_URL: "git@github.com:foxcreator/KratomBot.git"
 
     steps:
-      - name: 🛡️ Setup SSH key
+      - name: 🔄 Pull latest code
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: 🚀 Deploy to Server
-        run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash -c "'
-            set -e
-
-            if [ ! -d \"${REPO_PATH}/.git\" ]; then
-              echo \"📦 Cloning repository...\"
-              git clone ${REPO_URL} ${REPO_PATH}
-            else
-              echo \"✅ Repository already exists\"
-            fi
-
-            cd ${REPO_PATH}
+          cd $REPO_PATH
+          if [ ! -d .git ]; then
+            echo "📦 Cloning repository..."
+            git clone git@github.com:foxcreator/KratomBot.git $REPO_PATH
+          else
+            echo "✅ Repository already exists"
             git reset --hard
             git pull origin master
+          fi
 
-            echo \"🔧 Running Laravel tasks...\"
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
+      - name: 📦 Composer install
+        run: |
+          cd $REPO_PATH
+          composer install --no-dev --optimize-autoloader
 
-            echo \"✅ Deployment complete!\"
-          '"
+      - name: 🧱 Laravel commands
+        run: |
+          cd $REPO_PATH
+          php artisan migrate --force
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
