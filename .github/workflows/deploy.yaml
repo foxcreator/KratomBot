@@ -15,6 +15,7 @@ jobs:
     steps:
       - name: ✅ Trust repo path
         run: |
+          export HOME=/home/deploy
           git config --global --add safe.directory /var/www/kratombot
 
       - name: 🔄 Pull latest code
