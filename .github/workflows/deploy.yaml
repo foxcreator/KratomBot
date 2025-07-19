@@ -13,26 +13,26 @@ jobs:
       repo_path: "/var/www/kratombot"
       repo_url: "git@github.com:foxcreator/KratomBot.git"
 
-      steps:
-        - name: Ensure repo exists
-          run: |
-            if [ ! -d "$repo_path/.git" ]; then
-            echo "📦 Cloning repository..."
-            git clone $repo_url $repo_path
-            else
-            echo "✅ Repository already exists"
-            fi
+    steps:
+      - name: Ensure repo exists
+        run: |
+          if [ ! -d "$repo_path/.git" ]; then
+          echo "📦 Cloning repository..."
+          git clone $repo_url $repo_path
+          else
+          echo "✅ Repository already exists"
+          fi
 
-        - name: Pull latest code
-          run: |
-            cd $repo_path
-            git reset --hard
-            git pull origin master
+      - name: Pull latest code
+        run: |
+          cd $repo_path
+          git reset --hard
+          git pull origin master
 
-        - name: Run Laravel commands
-          run: |
-            cd $repo_path
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
+      - name: Run Laravel commands
+        run: |
+          cd $repo_path
+          php artisan migrate --force
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
