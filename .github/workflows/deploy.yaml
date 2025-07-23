@@ -27,6 +27,8 @@ jobs:
       - name: 📦 Composer install
         run: |
           cd $REPO_PATH
+          HOME: /home/deploy
+          export COMPOSER_ALLOW_SUPERUSER=1
           composer install --no-dev --optimize-autoloader
 
       - name: 🧱 Laravel commands
