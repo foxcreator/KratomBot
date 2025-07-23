@@ -25,10 +25,11 @@ jobs:
             git pull origin master
 
       - name: 📦 Composer install
+        env:
+          HOME: /home/deploy
+          COMPOSER_ALLOW_SUPERUSER: 1
         run: |
           cd $REPO_PATH
-          HOME: /home/deploy
-          export COMPOSER_ALLOW_SUPERUSER=1
           composer install --no-dev --optimize-autoloader
 
       - name: 🧱 Laravel commands
