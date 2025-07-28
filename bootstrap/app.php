@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\IsAdmin;
 use App\Http\Middleware\VerifyApiToken;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,7 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             '*'
         ]);
-        $middleware->api(append: [VerifyApiToken::class]);
+//        $middleware->api(append: [VerifyApiToken::class]);
+        $middleware->alias([
+            'isAdmin' => IsAdmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

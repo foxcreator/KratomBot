@@ -6,7 +6,15 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Замовлення</h3>
+                    <div class="row mb-2">
+                        <div class="col-sm-6">
+                            <h3 class="card-title">Замовлення</h3>
+                        </div>
+
+                        <div class="col-sm-6 text-right">
+                            <a href="{{ route('admin.orders.create') }}" class="btn btn-primary">Створити</a>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive p-0">
@@ -35,7 +43,7 @@
                                                 ID: {{ $order->member->telegram_id }}
                                             @endif
                                         @else
-                                            <span class="text-muted">Клієнт видалений</span>
+                                            <span class="text-muted">{{ $order->shipping_name }}</span>
                                         @endif
                                     </td>
                                     <td>
@@ -50,7 +58,7 @@
                                         {{ $order->created_at->format('d.m.Y H:i') }}
                                     </td>
                                     <td>
-                                        <a href="{{ route('admin.orders.show', $order->id) }}" 
+                                        <a href="{{ route('admin.orders.show', $order->id) }}"
                                            class="btn btn-sm btn-info">
                                             Переглянути
                                         </a>
@@ -60,7 +68,7 @@
                             </tbody>
                         </table>
                     </div>
-                    
+
                     <div class="mt-3">
                         {{ $orders->links() }}
                     </div>

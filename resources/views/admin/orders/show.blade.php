@@ -38,6 +38,10 @@
                                                 <option value="completed" {{ $order->status === 'completed' ? 'selected' : '' }}>Виконано</option>
                                                 <option value="cancelled" {{ $order->status === 'cancelled' ? 'selected' : '' }}>Скасовано</option>
                                             </select>
+                                            <p class="text-xs m-0 text-info"><span class="text-sm text-primary">Нове</span> - щойно створене замовлення</p>
+                                            <p class="text-xs m-0 text-info"><span class="text-sm text-warning">В обробці</span> - Оплачене але не відправлене замовлення</p>
+                                            <p class="text-xs m-0 text-info"><span class="text-sm text-green">Виконане</span> - Оплачене та відправлене покупцю замовлення</p>
+                                            <p class="text-xs m-0 text-info"><span class="text-sm text-red">Скасовано</span> - Скасоване замовлення, в нотатках вказати причину</p>
                                         </form>
                                     </td>
                                 </tr>
@@ -54,14 +58,14 @@
                                     <td><strong class="text-info">{{ $order->total_amount + $order->discount_amount }} грн</strong></td>
                                 </tr>
                                 @if($order->discount_percent > 0 && $order->discount_amount > 0)
-                                <tr>
-                                    <td><strong>Знижка:</strong></td>
-                                    <td><span class="text-danger">{{ $order->discount_percent }}% (-{{ number_format($order->discount_amount, 2) }} грн)</span></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Сума зі знижкою:</strong></td>
-                                    <td><strong class="text-success">{{ number_format($order->total_amount, 2) }} грн</strong></td>
-                                </tr>
+                                    <tr>
+                                        <td><strong>Знижка:</strong></td>
+                                        <td><span class="text-danger">{{ $order->discount_percent }}% (-{{ number_format($order->discount_amount, 2) }} грн)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Сума зі знижкою:</strong></td>
+                                        <td><strong class="text-success">{{ number_format($order->total_amount, 2) }} грн</strong></td>
+                                    </tr>
                                 @endif
                                 <tr>
                                     <td><strong>Тип оплати:</strong></td>
@@ -101,7 +105,7 @@
                                 @endif
                             </table>
                         </div>
-                        
+
                         <div class="col-md-6">
                             <h5>Інформація про клієнта</h5>
                             @if($order->member)
@@ -164,14 +168,15 @@
                                                 ({{ $item->productOption->name }})
                                             @endif
                                         </strong>
-                                        @if($item->product->description)
-                                            <br><small class="text-muted">{{ Str::limit($item->product->description, 100) }}</small>
-                                        @endif
                                     </td>
                                     <td>{{ $item->quantity }} шт.</td>
                                     <td>{{ number_format($item->price, 2) }} грн</td>
                                     <td><strong>{{ number_format($item->price * $item->quantity, 2) }} грн</strong></td>
-                                    <td class="text-success"><strong>{{ number_format(($item->price * $item->quantity / 100) * (100 - $settings['telegram_channel_discount']), 2) }} грн</strong></td>
+                                    @if($order->discount_percent > 0)
+                                        <td class="text-success"><strong>{{ number_format(($item->price * $item->quantity / 100) * (100 - $settings['telegram_channel_discount']), 2) }} грн</strong></td>
+                                    @else
+                                        <td class="text-success"><strong>{{ number_format($item->price * $item->quantity, 2) }} грн</strong></td>
+                                    @endif
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -228,4 +233,4 @@ $(document).ready(function() {
     });
 });
 </script>
-@endsection 
+@endsection

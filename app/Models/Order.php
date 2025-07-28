@@ -11,11 +11,11 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
-        'member_id', 
-        'order_number', 
-        'status', 
-        'total_amount', 
-        'notes', 
+        'member_id',
+        'order_number',
+        'status',
+        'total_amount',
+        'notes',
         'source',
         'payment_type',
         'payment_receipt',
@@ -37,7 +37,7 @@ class Order extends Model
     protected static function boot()
     {
         parent::boot();
-        
+
         static::created(function ($order) {
             if (empty($order->order_number)) {
                 $order->order_number = 'ORD-'. date('Ymd') . $order->id;
@@ -63,6 +63,11 @@ class Order extends Model
                     ->withTimestamps();
     }
 
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function getTotalItemsAttribute()
     {
         return $this->orderItems->sum('quantity');
@@ -72,4 +77,4 @@ class Order extends Model
     {
         return number_format($this->total_amount, 2) . ' грн';
     }
-} 
+}

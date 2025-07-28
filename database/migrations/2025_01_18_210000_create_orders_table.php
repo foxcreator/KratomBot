@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('member_id')->constrained('members')->onDelete('cascade');
+            $table->foreignId('member_id')->constrained('members')->nullOnDelete();
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
             $table->string('status')->default('new');
             $table->timestamps();
@@ -21,4 +21,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('orders');
     }
-}; 
+};
