@@ -5,12 +5,17 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Resources\OrderResource\RelationManagers;
 use App\Models\Order;
+use App\Services\TelegramService;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -162,7 +167,45 @@ class OrderResource extends Resource
                     ->searchable(),
             ])
             ->actions([
+                Action::make('showReceipt')
+                    ->label('Квитанція')
+                    ->icon('heroicon-o-eye')
+                    ->modalHeading('Квитанція')
+                    ->modalSubmitAction(false) // <- ВАЖЛИВО: прибирає кнопку "Відправити"
+                    ->modalCancelActionLabel('Закрити')
+                    ->modalContent(function ($record) {
+                        $receiptUrl = asset('storage/' . ltrim($record->payment_receipt, '/'));
+                        return view('components.receipt-modal', [
+                            'receiptUrl' => $receiptUrl,
+                        ]);
+                    }),
                 Tables\Actions\EditAction::make(),
+                Action::make('sendMessage')
+                    ->label('Відправити повідомлення')
+                    ->color('success')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->visible(fn ($record) => $record->member_id !== null)
+                    ->form([
+                        Forms\Components\Textarea::make('message')
+                            ->label('Повідомлення')
+                            ->required()
+                            ->rows(5),
+                    ])
+                    ->action(function (array $data, $record) {
+                        $member = $record->member;
+                        if ($member?->telegram_id) {
+                        app(TelegramService::class)->sendMessage($member->telegram_id, $data['message']);
+                            Notification::make()
+                                ->title('Повідомлення надіслано')
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Telegram ID не вказано')
+                                ->danger()
+                                ->send();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -174,7 +217,7 @@ class OrderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\OrderItemsRelationManager::class,
         ];
     }
 
@@ -184,6 +227,7 @@ class OrderResource extends Resource
             'index' => Pages\ListOrders::route('/'),
             'create' => Pages\CreateOrder::route('/create'),
             'edit' => Pages\EditOrder::route('/{record}/edit'),
+            'view' => Pages\ViewOrder::route('/{record}'),
         ];
     }
 }

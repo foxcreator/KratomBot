@@ -23,4 +23,4 @@ class MemberController extends Controller
         ]);
         return redirect()->back()->with('status', 'Повідомлення надіслано!');
     }
-} 
+}
