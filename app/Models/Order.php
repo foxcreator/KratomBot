@@ -11,11 +11,11 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
-        'member_id', 
-        'order_number', 
-        'status', 
-        'total_amount', 
-        'notes', 
+        'member_id',
+        'order_number',
+        'status',
+        'total_amount',
+        'notes',
         'source',
         'payment_type',
         'payment_receipt',
@@ -34,10 +34,22 @@ class Order extends Model
         'discount_amount' => 'decimal:2',
     ];
 
+    const STATUS_NEW = 'new';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_PROCESSING = 'processing';
+    const STATUS_CANCELLED = 'cancelled';
+
+    const STATUSES = [
+        self::STATUS_NEW => 'Нове',
+        self::STATUS_COMPLETED => 'Виконано',
+        self::STATUS_PROCESSING => 'В обробці',
+        self::STATUS_CANCELLED => 'Скасовано',
+    ];
+
     protected static function boot()
     {
         parent::boot();
-        
+
         static::created(function ($order) {
             if (empty($order->order_number)) {
                 $order->order_number = 'ORD-'. date('Ymd') . $order->id;
@@ -72,4 +84,9 @@ class Order extends Model
     {
         return number_format($this->total_amount, 2) . ' грн';
     }
-} 
+
+    public function getStatusNameAttribute()
+    {
+        return self::STATUSES[$this->status];
+    }
+}
