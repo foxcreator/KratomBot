@@ -56,6 +56,18 @@ class Order extends Model
                 $order->save();
             }
         });
+
+        static::updated(function (Order $order) {
+            if (
+                $order->isDirty('status') &&
+                $order->status === Order::STATUS_PROCESSING &&
+                $order->cash_register_id &&
+                $order->total_amount > 0
+            ) {
+                $cashRegister = $order->cashRegister;
+                $cashRegister->increment('balance', $order->total_amount);
+            }
+        });
     }
 
     public function member()
@@ -78,6 +90,16 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function paymentType()
+    {
+        return $this->belongsTo(PaymentType::class);
+    }
+
+    public function cashRegister()
+    {
+        return $this->belongsTo(CashRegister::class);
     }
 
     public function getTotalItemsAttribute()

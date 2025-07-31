@@ -16,6 +16,11 @@ class Member extends Model
         'username',
         'current_brand_id',
         'checkout_state',
+        'full_name',
+        'address',
+        'city',
+        'phone',
+        'shipping_office',
     ];
 
     protected $casts = [
@@ -48,5 +53,11 @@ class Member extends Model
     public function getCartItemsCountAttribute()
     {
         return $this->cartItems->sum('quantity');
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        $name = $this->attributes['full_name'] ?? $this->attributes['username'];
+        return $name ?? 'Без імені';
     }
 }

@@ -17,4 +17,9 @@ class PaymentType extends Model
     {
         return $this->hasMany(CashRegister::class);
     }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
 }

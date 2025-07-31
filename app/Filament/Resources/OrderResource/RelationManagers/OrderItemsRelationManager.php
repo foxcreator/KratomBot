@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class OrderItemsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'OrderItems';
+    protected static string $relationship = 'orderItems';
     protected static ?string $recordTitleAttribute = 'id';
 
 
@@ -65,7 +65,7 @@ class OrderItemsRelationManager extends RelationManager
                 ),
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make(), // кнопка "Додати товар"
+                Tables\Actions\CreateAction::make(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

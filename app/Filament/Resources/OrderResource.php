@@ -4,11 +4,16 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Resources\OrderResource\RelationManagers;
+use App\Models\CashRegister;
+use App\Models\Member;
 use App\Models\Order;
+use App\Models\PaymentType;
 use App\Services\TelegramService;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -29,22 +34,79 @@ class OrderResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationLabel = 'Замовлення';
+    protected static ?string $label = 'Замовлення';
+    protected static ?string $pluralLabel = 'Замовлення';
+    protected static ?string $navigationGroup = 'Продажі';
+    protected static ?int $navigationSort = 0;
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
+
+                Forms\Components\TextInput::make('user_id')
+                    ->hidden()
+                    ->default(auth()->user()->id)
+                    ->numeric(),
                 Forms\Components\TextInput::make('order_number')
                     ->label('Номер Замовлення')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->helperText('Заповнюєтся автоматично'),
                 Forms\Components\Select::make('status')
                     ->label('Статус')
                     ->options(Order::STATUSES)
                     ->required()
-                    ->default(Order::STATUSES[Order::STATUS_NEW]),
-                Forms\Components\TextInput::make('member.name')
-                    ->label('Нікнейм клієнта')
-                    ->readOnly(),
+                    ->default(Order::STATUSES[Order::STATUS_NEW])
+                    ->disabled(fn (string $context) => $context === 'create'),
+                Select::make('member_id')
+                    ->label('Клієнт')
+                    ->relationship('member', 'full_name') // просто ID
+                    ->searchable()
+                    ->preload()
+                    ->createOptionForm([
+                        TextInput::make('full_name')
+                            ->label('Імʼя')
+                            ->required(),
+
+                        TextInput::make('phone')
+                            ->label('Телефон')
+                            ->tel()
+                            ->required()
+                            ->unique('members', 'phone'),
+
+                        TextInput::make('email')
+                            ->label('Email')
+                            ->email()
+                            ->unique('members', 'email')
+                            ->nullable(),
+
+                        TextInput::make('address')
+                            ->label('Адреса')
+                            ->nullable(),
+
+                        TextInput::make('city')
+                            ->label('Місто')
+                            ->nullable(),
+
+                        TextInput::make('shipping_office')
+                            ->label('Відділення Нової пошти')
+                            ->nullable(),
+                    ])
+                    ->reactive()
+                    ->afterStateUpdated(function (?int $state, callable $set) {
+                        if (! $state) {
+                            return;
+                        }
+
+                        $member = \App\Models\Member::find($state);
+
+                        if ($member) {
+                            $set('shipping_name', $member->full_name ?? '');
+                            $set('shipping_phone', $member->phone ?? '');
+                            $set('shipping_city', $member->city ?? '');
+                            $set('shipping_office', $member->shipping_office ?? '');
+                        }
+                    }),
                 Forms\Components\TextInput::make('source')
                     ->label('Джерело')
                     ->required()
@@ -69,9 +131,23 @@ class OrderResource extends Resource
                         ->default(0.00),
                 ])
                 ->columns(3),
-                Forms\Components\TextInput::make('payment_type')
-                    ->label('Спосіб оплати')
-                    ->maxLength(255),
+                Forms\Components\Select::make('payment_type_id')
+                    ->label('Тип оплати')
+                    ->options(PaymentType::pluck('name', 'id'))
+                    ->reactive()
+                    ->required(),
+
+                Forms\Components\Select::make('cash_register_id')
+                    ->label('Каса')
+                    ->options(fn (callable $get) =>
+                    CashRegister::where('payment_type_id', $get('payment_type_id'))
+                        ->pluck('name', 'id')
+                    )
+                    ->required()
+                    ->reactive()
+                    ->disabled(fn (callable $get) => blank($get('payment_type_id')))
+                    ->hint('Каси підтягуються за типом оплати'),
+
                 FileUpload::make('payment_receipt')
                     ->label('Фото квитанції')
                     ->image()
@@ -117,6 +193,10 @@ class OrderResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('member.username')
                     ->label('Нікнейм замовника')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('member.full_name')
+                    ->label('Імʼя замовника')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('statusName')
@@ -171,6 +251,7 @@ class OrderResource extends Resource
                     ->label('Квитанція')
                     ->icon('heroicon-o-eye')
                     ->modalHeading('Квитанція')
+                    ->visible(fn ($record) => $record->payment_receipt !== null)
                     ->modalSubmitAction(false) // <- ВАЖЛИВО: прибирає кнопку "Відправити"
                     ->modalCancelActionLabel('Закрити')
                     ->modalContent(function ($record) {
@@ -184,7 +265,7 @@ class OrderResource extends Resource
                     ->label('Відправити повідомлення')
                     ->color('success')
                     ->icon('heroicon-o-paper-airplane')
-                    ->visible(fn ($record) => $record->member_id !== null)
+                    ->visible(fn ($record) => $record->member->telegram_id !== null)
                     ->form([
                         Forms\Components\Textarea::make('message')
                             ->label('Повідомлення')

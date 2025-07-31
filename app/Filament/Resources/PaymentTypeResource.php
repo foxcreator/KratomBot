@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\BrandResource\Pages;
-use App\Filament\Resources\BrandResource\RelationManagers;
-use App\Models\Brand;
+use App\Filament\Resources\PaymentTypeResource\Pages;
+use App\Filament\Resources\PaymentTypeResource\RelationManagers;
+use App\Models\PaymentType;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -13,40 +13,30 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class BrandResource extends Resource
+class PaymentTypeResource extends Resource
 {
-    protected static ?string $model = Brand::class;
+    protected static ?string $model = PaymentType::class;
 
-    protected static ?string $navigationLabel = 'Категорії';
-    protected static ?string $label = 'Категорія';
-    protected static ?string $pluralLabel = 'Категорії';
-    protected static ?string $navigationGroup = 'Склад';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?int $navigationSort = 3;
+    protected static ?string $navigationLabel = 'Типи платежів';
+    protected static ?string $label = 'Тип платежу';
+    protected static ?string $pluralLabel = 'Типи платежів';
+    protected static ?string $navigationGroup = 'Гроші';
+    protected static ?int $navigationSort = 7;
 
     public static function canAccess(): bool
     {
         return auth()->user()->isAdmin();
     }
 
-
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->label('Назва')
+                    ->label('Назва типу')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\Textarea::make('description')
-                    ->label('Опис')
-                    ->columnSpanFull(),
-                Forms\Components\Textarea::make('chat_text')
-                    ->label('Текст')
-                    ->columnSpanFull(),
-                Forms\Components\Textarea::make('price')
-                    ->label('Ціни')
-                    ->columnSpanFull(),
             ]);
     }
 
@@ -55,6 +45,7 @@ class BrandResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Назва типу')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -88,9 +79,9 @@ class BrandResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListBrands::route('/'),
-            'create' => Pages\CreateBrand::route('/create'),
-            'edit' => Pages\EditBrand::route('/{record}/edit'),
+            'index' => Pages\ListPaymentTypes::route('/'),
+            'create' => Pages\CreatePaymentType::route('/create'),
+            'edit' => Pages\EditPaymentType::route('/{record}/edit'),
         ];
     }
 }

@@ -20,6 +20,13 @@ class ProductResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationLabel = 'Товари';
+    protected static ?string $navigationGroup = 'Склад';
+    protected static ?int $navigationSort = 5;
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()->isAdmin();
+    }
 
     public static function form(Form $form): Form
     {

@@ -22,6 +22,10 @@ class MemberResource extends Resource
     protected static ?string $navigationLabel = 'Клієнти';
     protected static ?string $label = 'Клієнта';
     protected static ?string $pluralLabel = 'Клієнти';
+    protected static ?string $navigationGroup = 'Продажі';
+    protected static ?int $navigationSort = 2;
+
+
     public static function form(Form $form): Form
     {
         return $form

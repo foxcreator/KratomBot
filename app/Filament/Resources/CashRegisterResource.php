@@ -2,10 +2,10 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\SubcategoryResource\Pages;
-use App\Filament\Resources\SubcategoryResource\RelationManagers;
-use App\Models\Brand;
-use App\Models\Subcategory;
+use App\Filament\Resources\CashRegisterResource\Pages;
+use App\Filament\Resources\CashRegisterResource\RelationManagers;
+use App\Models\CashRegister;
+use App\Models\PaymentType;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -14,16 +14,16 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class SubcategoryResource extends Resource
+class CashRegisterResource extends Resource
 {
-    protected static ?string $model = Subcategory::class;
+    protected static ?string $model = CashRegister::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationLabel = 'Підкатегорії';
-    protected static ?string $label = 'Підкатегорію';
-    protected static ?string $pluralLabel = 'Підкатегорії';
-    protected static ?string $navigationGroup = 'Склад';
-    protected static ?int $navigationSort = 4;
+    protected static ?string $navigationLabel = 'Каси';
+    protected static ?string $label = 'Касу';
+    protected static ?string $pluralLabel = 'Каси';
+    protected static ?string $navigationGroup = 'Гроші';
+    protected static ?int $navigationSort = 8;
 
     public static function canAccess(): bool
     {
@@ -38,10 +38,22 @@ class SubcategoryResource extends Resource
                     ->label('Назва')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\Select::make('brand_id')
-                    ->label('Категорія')
+                Forms\Components\Textarea::make('details')
+                    ->label('Реквізити')
                     ->required()
-                    ->options(Brand::get()->pluck('name', 'id')),
+                    ->columnSpanFull(),
+                Forms\Components\TextInput::make('balance')
+                    ->label('Баланс')
+                    ->required()
+                    ->numeric()
+                    ->default(0.00),
+                Forms\Components\TextInput::make('description')
+                    ->label('Опис')
+                    ->maxLength(255),
+                Forms\Components\Select::make('payment_type_id')
+                    ->label('Тип оплати')
+                    ->options(PaymentType::pluck('name', 'id'))
+                    ->required(),
             ]);
     }
 
@@ -52,8 +64,12 @@ class SubcategoryResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->label('Назва')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('brand.name')
-                    ->label('Категорія')
+                Tables\Columns\TextColumn::make('balance')
+                    ->label('Баланс')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('paymentType.name')
+                    ->label('Тип оплати')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
@@ -66,7 +82,9 @@ class SubcategoryResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('payment_type_id')
+                    ->label('Тип оплати')
+                    ->options(PaymentType::pluck('name', 'id')->toArray()),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -88,9 +106,9 @@ class SubcategoryResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListSubcategories::route('/'),
-            'create' => Pages\CreateSubcategory::route('/create'),
-            'edit' => Pages\EditSubcategory::route('/{record}/edit'),
+            'index' => Pages\ListCashRegisters::route('/'),
+            'create' => Pages\CreateCashRegister::route('/create'),
+            'edit' => Pages\EditCashRegister::route('/{record}/edit'),
         ];
     }
 }
