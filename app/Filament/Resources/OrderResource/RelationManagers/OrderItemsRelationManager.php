@@ -2,20 +2,28 @@
 
 namespace App\Filament\Resources\OrderResource\RelationManagers;
 
+use App\Models\Order;
 use App\Models\ProductOption;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\DB;
 
 class OrderItemsRelationManager extends RelationManager
 {
     protected static string $relationship = 'orderItems';
     protected static ?string $recordTitleAttribute = 'id';
 
+    protected function isProcessing(): bool
+    {
+        $order = $this->getOwnerRecord();
+        if ($order->status !== Order::STATUS_NEW) {
+            return true;
+        }
+        return false;
+    }
 
     public function form(Form $form): Form
     {
@@ -65,14 +73,40 @@ class OrderItemsRelationManager extends RelationManager
                 ),
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make(),
+                Tables\Actions\CreateAction::make()
+                    ->after(function () {
+                        $this->updateOrderTotal();
+                    })
+                    ->disabled($this->isProcessing()),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->after(function () {
+                        $this->updateOrderTotal();
+                    })
+                    ->disabled($this->isProcessing()),
+                Tables\Actions\DeleteAction::make()
+                    ->after(function () {
+                        $this->updateOrderTotal();
+                        $this->refreshOwnerRecord();
+                    })
+                    ->disabled($this->isProcessing()),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+                Tables\Actions\DeleteBulkAction::make()
+                    ->disabled($this->isProcessing()),
             ]);
+    }
+
+    public function updateOrderTotal(): void
+    {
+        $order = $this->getOwnerRecord();
+        $total = $order->orderItems()->sum(DB::raw('quantity * price'));
+
+        $order->update([
+            'total_amount' => $total,
+        ]);
+        $this->redirect(request()->header('Referer'));
+
     }
 }

@@ -39,6 +39,19 @@ class OrderResource extends Resource
     protected static ?string $navigationGroup = 'Продажі';
     protected static ?int $navigationSort = 0;
 
+    protected static function isProcessing($get): bool
+    {
+        if ($get('status') !== Order::STATUS_NEW) {
+            return true;
+        }
+        return false;
+    }
+
+    protected function getStatuses(): array
+    {
+
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -48,70 +61,76 @@ class OrderResource extends Resource
                     ->hidden()
                     ->default(auth()->user()->id)
                     ->numeric(),
-                Forms\Components\TextInput::make('order_number')
-                    ->label('Номер Замовлення')
-                    ->maxLength(255)
-                    ->helperText('Заповнюєтся автоматично'),
-                Forms\Components\Select::make('status')
-                    ->label('Статус')
-                    ->options(Order::STATUSES)
-                    ->required()
-                    ->default(Order::STATUSES[Order::STATUS_NEW])
-                    ->disabled(fn (string $context) => $context === 'create'),
-                Select::make('member_id')
-                    ->label('Клієнт')
-                    ->relationship('member', 'full_name') // просто ID
-                    ->searchable()
-                    ->preload()
-                    ->createOptionForm([
-                        TextInput::make('full_name')
-                            ->label('Імʼя')
-                            ->required(),
+                Forms\Components\Section::make([
+                    Forms\Components\TextInput::make('order_number')
+                        ->label('Номер Замовлення')
+                        ->maxLength(255)
+                        ->disabled()
+                        ->helperText('Заповнюєтся автоматично'),
+                    Forms\Components\Select::make('status')
+                        ->label('Статус')
+                        ->options(Order::STATUSES)
+                        ->required()
+                        ->default(Order::STATUSES[Order::STATUS_NEW])
+                        ->disabled(fn (string $context) => $context === 'create'),
+                    Select::make('member_id')
+                        ->label('Клієнт')
+                        ->relationship('member', 'full_name') // просто ID
+                        ->searchable()
+                        ->preload()
+                        ->disabled(fn (callable $get) => self::isProcessing($get))
+                        ->createOptionForm([
+                            TextInput::make('full_name')
+                                ->label('Імʼя')
+                                ->required(),
 
-                        TextInput::make('phone')
-                            ->label('Телефон')
-                            ->tel()
-                            ->required()
-                            ->unique('members', 'phone'),
+                            TextInput::make('phone')
+                                ->label('Телефон')
+                                ->tel()
+                                ->required()
+                                ->unique('members', 'phone'),
 
-                        TextInput::make('email')
-                            ->label('Email')
-                            ->email()
-                            ->unique('members', 'email')
-                            ->nullable(),
+                            TextInput::make('email')
+                                ->label('Email')
+                                ->email()
+                                ->unique('members', 'email')
+                                ->nullable(),
 
-                        TextInput::make('address')
-                            ->label('Адреса')
-                            ->nullable(),
+                            TextInput::make('address')
+                                ->label('Адреса')
+                                ->nullable(),
 
-                        TextInput::make('city')
-                            ->label('Місто')
-                            ->nullable(),
+                            TextInput::make('city')
+                                ->label('Місто')
+                                ->nullable(),
 
-                        TextInput::make('shipping_office')
-                            ->label('Відділення Нової пошти')
-                            ->nullable(),
+                            TextInput::make('shipping_office')
+                                ->label('Відділення Нової пошти')
+                                ->nullable(),
+                        ])
+                        ->reactive()
+                        ->afterStateUpdated(function (?int $state, callable $set) {
+                            if (! $state) {
+                                return;
+                            }
+
+                            $member = \App\Models\Member::find($state);
+
+                            if ($member) {
+                                $set('shipping_name', $member->full_name ?? '');
+                                $set('shipping_phone', $member->phone ?? '');
+                                $set('shipping_city', $member->city ?? '');
+                                $set('shipping_office', $member->shipping_office ?? '');
+                            }
+                        }),
                     ])
-                    ->reactive()
-                    ->afterStateUpdated(function (?int $state, callable $set) {
-                        if (! $state) {
-                            return;
-                        }
-
-                        $member = \App\Models\Member::find($state);
-
-                        if ($member) {
-                            $set('shipping_name', $member->full_name ?? '');
-                            $set('shipping_phone', $member->phone ?? '');
-                            $set('shipping_city', $member->city ?? '');
-                            $set('shipping_office', $member->shipping_office ?? '');
-                        }
-                    }),
+                    ->columns(3),
                 Forms\Components\TextInput::make('source')
                     ->label('Джерело')
                     ->required()
                     ->maxLength(255)
                     ->readOnly()
+                    ->hidden()
                     ->default('Пряме замовлення'),
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('total_amount')
@@ -119,22 +138,60 @@ class OrderResource extends Resource
                         ->readOnly()
                         ->required()
                         ->numeric()
-                        ->default(0.00),
+                        ->default(0.00)
+                        ->disabled(fn (callable $get) => self::isProcessing($get))
+                        ->reactive()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            $percent = floatval($get('discount_percent'));
+                            $discount = $state * ($percent / 100);
+                            $set('discount_amount', round($discount, 2));
+                            $set('final_amount', round($state - $discount, 2));
+                        }),
+                    TextInput::make('final_amount')
+                        ->label('До оплати')
+                        ->numeric()
+                        ->readOnly()
+                        ->default(0.00)
+                        ->disabled(fn (callable $get) => self::isProcessing($get))
+                        ->reactive()
+                        ->afterStateHydrated(function (callable $set, callable $get) {
+                            $total = floatval($get('total_amount'));
+                            $percent = floatval($get('discount_percent'));
+                            $set('final_amount', round($total - ($total * ($percent / 100)), 2));
+                        })
+                        ->dehydrated(false),
                     Forms\Components\TextInput::make('discount_percent')
                         ->label('Знижка %')
                         ->numeric()
-                        ->default(0.00),
+                        ->default(0.00)
+                        ->reactive()
+                        ->disabled(fn (callable $get) => self::isProcessing($get))
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            $total = floatval($get('total_amount'));
+                            $discount = $total * ($state / 100);
+                            $set('discount_amount', round($discount, 2));
+                            $set('final_amount', round($total - $discount, 2)); // 🟢 ДОДАНО!
+                        }),
                     Forms\Components\TextInput::make('discount_amount')
                         ->label('Сума знижки')
                         ->numeric()
                         ->readOnly()
-                        ->default(0.00),
+                        ->default(0.00)
+                        ->disabled(fn (callable $get) => self::isProcessing($get))
+                        ->reactive()
+                        ->afterStateHydrated(function (callable $set, callable $get) {
+                            $total = floatval($get('total_amount'));
+                            $percent = floatval($get('discount_percent'));
+                            $discount = $total * ($percent / 100);
+                            $set('discount_amount', round($discount, 2));
+                        }),
                 ])
-                ->columns(3),
+                ->columns(4),
                 Forms\Components\Select::make('payment_type_id')
                     ->label('Тип оплати')
                     ->options(PaymentType::pluck('name', 'id'))
                     ->reactive()
+                    ->disabled(fn (callable $get) => self::isProcessing($get))
                     ->required(),
 
                 Forms\Components\Select::make('cash_register_id')
@@ -144,8 +201,10 @@ class OrderResource extends Resource
                         ->pluck('name', 'id')
                     )
                     ->required()
+                    ->disabled(fn (callable $get) => self::isProcessing($get))
                     ->reactive()
                     ->disabled(fn (callable $get) => blank($get('payment_type_id')))
+                    ->disabled(fn (callable $get) => self::isProcessing($get))
                     ->hint('Каси підтягуються за типом оплати'),
 
                 FileUpload::make('payment_receipt')
@@ -155,6 +214,7 @@ class OrderResource extends Resource
                     ->imagePreviewHeight('200')
                     ->preserveFilenames()
                     ->maxSize(4096)
+                    ->disabled(fn (callable $get) => self::isProcessing($get))
                     ->required(false),
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('shipping_phone')
@@ -252,7 +312,7 @@ class OrderResource extends Resource
                     ->icon('heroicon-o-eye')
                     ->modalHeading('Квитанція')
                     ->visible(fn ($record) => $record->payment_receipt !== null)
-                    ->modalSubmitAction(false) // <- ВАЖЛИВО: прибирає кнопку "Відправити"
+                    ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Закрити')
                     ->modalContent(function ($record) {
                         $receiptUrl = asset('storage/' . ltrim($record->payment_receipt, '/'));
