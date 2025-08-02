@@ -43,7 +43,7 @@ class Order extends Model
     const STATUSES = [
         self::STATUS_NEW => 'Нове',
         self::STATUS_COMPLETED => 'Виконано',
-        self::STATUS_PROCESSING => 'В обробці',
+        self::STATUS_PROCESSING => 'Оплачено',
         self::STATUS_CANCELLED => 'Скасовано',
     ];
 

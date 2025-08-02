@@ -25,6 +25,10 @@ class CashWithdrawalResource extends Resource
     protected static ?string $pluralLabel = 'Виноси';
     protected static ?int $navigationSort = 9;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()->isAdmin();
+    }
 
     public static function form(Form $form): Form
     {

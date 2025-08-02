@@ -9,6 +9,7 @@ use App\Models\Member;
 use App\Models\Order;
 use App\Models\PaymentType;
 use App\Services\TelegramService;
+use Closure;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -47,9 +48,22 @@ class OrderResource extends Resource
         return false;
     }
 
-    protected function getStatuses(): array
+    protected static function getStatuses($get): array
     {
-
+        if ($get('status') === Order::STATUS_NEW || auth()->user()->isAdmin()) {
+            return Order::STATUSES;
+        } elseif ($get('status') === Order::STATUS_PROCESSING) {
+            $data = Order::STATUSES;
+            if (!auth()->user()->isAdmin()) {
+                unset($data[Order::STATUS_NEW]);
+            }
+            unset($data[Order::STATUS_CANCELLED]);
+            return $data;
+        } else {
+            $data = Order::STATUSES;
+            unset($data[Order::STATUS_NEW]);
+            return $data;
+        }
     }
 
     public static function form(Form $form): Form
@@ -69,10 +83,23 @@ class OrderResource extends Resource
                         ->helperText('Заповнюєтся автоматично'),
                     Forms\Components\Select::make('status')
                         ->label('Статус')
-                        ->options(Order::STATUSES)
+                        ->options(fn (callable $get) => self::getStatuses($get))
                         ->required()
                         ->default(Order::STATUSES[Order::STATUS_NEW])
-                        ->disabled(fn (string $context) => $context === 'create'),
+                        ->disabled(fn (string $context) => $context === 'create')
+                        ->disabled(fn (callable $get) => !auth()->user()->isAdmin() && $get('status') === Order::STATUS_COMPLETED)
+                        ->rules([
+                            function (callable $get) {
+                                return function (string $attribute, $value, Closure $fail) use ($get) {
+                                    if (
+                                        $value === Order::STATUS_PROCESSING &&
+                                        empty($get('payment_receipt'))
+                                    ) {
+                                        $fail('Не можна встановити статус "Оплачено" без підтвердження оплати.');
+                                    }
+                                };
+                            },
+                        ]),
                     Select::make('member_id')
                         ->label('Клієнт')
                         ->relationship('member', 'full_name') // просто ID
@@ -216,6 +243,7 @@ class OrderResource extends Resource
                     ->maxSize(4096)
                     ->disabled(fn (callable $get) => self::isProcessing($get))
                     ->required(false),
+
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('shipping_phone')
                         ->label('Номер телефону')
