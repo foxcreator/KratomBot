@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="{{ asset('dist/css/colorbox.css') }}">
 
     <link href="{{ asset('/css/colorbox.css') }}" rel="stylesheet">
+    <link href="{{ asset('/css/select2.css') }}" rel="stylesheet">
 
     <script src="{{ asset('plugins/bootstrap-switch/js/bootstrap-switch.min.js') }}"></script>
 
@@ -89,10 +90,36 @@
 
             <nav class="mt-2">
                 <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+                    @if(auth()->user()->isAdmin())
+                        <li class="nav-item">
+                            <a href="{{ route('admin.dashboard') }}" class="nav-link">
+                                <i class="nav-icon fas fa-tachometer-alt"></i>
+                                <p>Панель інформації</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.products.index') }}" class="nav-link">
+                                <i class="nav-icon fas fa-users text-info"></i>
+                                <p>Продукти</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.brands.index') }}" class="nav-link">
+                                <i class="nav-icon fas fa-users text-info"></i>
+                                <p>Категорії</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.subcategories.index') }}" class="nav-link">
+                                <i class="nav-icon fas fa-list text-info"></i>
+                                <p>Підкатегорії</p>
+                            </a>
+                        </li>
+                    @endif
                     <li class="nav-item">
-                        <a href="{{ route('admin.dashboard') }}" class="nav-link">
-                            <i class="nav-icon fas fa-tachometer-alt"></i>
-                            <p>Панель інформації</p>
+                        <a href="{{ route('admin.orders.index') }}" class="nav-link">
+                            <i class="nav-icon fas fa-users text-info"></i>
+                            <p>Замовлення</p>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -101,37 +128,30 @@
                             <p>Користувачі</p>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a href="{{ route('admin.products.index') }}" class="nav-link">
-                            <i class="nav-icon fas fa-users text-info"></i>
-                            <p>Продукти</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('admin.brands.index') }}" class="nav-link">
-                            <i class="nav-icon fas fa-users text-info"></i>
-                            <p>Категорії</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('admin.subcategories.index') }}" class="nav-link">
-                            <i class="nav-icon fas fa-list text-info"></i>
-                            <p>Підкатегорії</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('admin.orders.index') }}" class="nav-link">
-                            <i class="nav-icon fas fa-users text-info"></i>
-                            <p>Замовлення</p>
-                        </a>
-                    </li>
-                    <li class="nav-header">Інструменти</li>
-                    <li class="nav-item">
-                        <a href="{{ route('admin.settings') }}" class="nav-link">
-                            <i class="nav-icon fas fa-tools text-gray"></i>
-                            <p>Налаштування бота</p>
-                        </a>
-                    </li>
+                    @if(auth()->user()->isAdmin())
+                        <li class="nav-header">Облік</li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.reports.index') }}" class="nav-link">
+                                <i class="nav-icon fas fa-users text-info"></i>
+                                <p>Продажі</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="{{ route('admin.users.index') }}" class="nav-link">
+                                <i class="nav-icon fas fa-users text-info"></i>
+                                <p>Працівники</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-header">Інструменти</li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.settings') }}" class="nav-link">
+                                <i class="nav-icon fas fa-tools text-gray"></i>
+                                <p>Налаштування бота</p>
+                            </a>
+                        </li>
+                    @endif
                     <li class="nav-item">
                         <form action="{{ route('logout') }}" method="POST">
                             @csrf

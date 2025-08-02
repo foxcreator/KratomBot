@@ -17,7 +17,8 @@ class Order extends Model
         'total_amount',
         'notes',
         'source',
-        'payment_type',
+        'payment_type_id',
+        'cash_register_id',
         'payment_receipt',
         'shipping_phone',
         'shipping_city',
@@ -42,7 +43,7 @@ class Order extends Model
     const STATUSES = [
         self::STATUS_NEW => 'Нове',
         self::STATUS_COMPLETED => 'Виконано',
-        self::STATUS_PROCESSING => 'В обробці',
+        self::STATUS_PROCESSING => 'Оплачено',
         self::STATUS_CANCELLED => 'Скасовано',
     ];
 
@@ -54,6 +55,18 @@ class Order extends Model
             if (empty($order->order_number)) {
                 $order->order_number = 'ORD-'. date('Ymd') . $order->id;
                 $order->save();
+            }
+        });
+
+        static::updated(function (Order $order) {
+            if (
+                $order->isDirty('status') &&
+                $order->status === Order::STATUS_PROCESSING &&
+                $order->cash_register_id &&
+                $order->total_amount > 0
+            ) {
+                $cashRegister = $order->cashRegister;
+                $cashRegister->increment('balance', $order->total_amount);
             }
         });
     }
@@ -73,6 +86,21 @@ class Order extends Model
         return $this->belongsToMany(Product::class, 'order_items')
                     ->withPivot('quantity', 'price')
                     ->withTimestamps();
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function paymentType()
+    {
+        return $this->belongsTo(PaymentType::class);
+    }
+
+    public function cashRegister()
+    {
+        return $this->belongsTo(CashRegister::class);
     }
 
     public function getTotalItemsAttribute()

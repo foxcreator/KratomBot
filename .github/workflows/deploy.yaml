@@ -1,4 +1,4 @@
-name: 🚀 Deploy Laravel App (Self-Hosted)
+name: Deploy AurashopBot
 
 on:
   push:

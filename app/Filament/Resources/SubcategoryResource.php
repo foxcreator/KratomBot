@@ -22,6 +22,13 @@ class SubcategoryResource extends Resource
     protected static ?string $navigationLabel = 'Підкатегорії';
     protected static ?string $label = 'Підкатегорію';
     protected static ?string $pluralLabel = 'Підкатегорії';
+    protected static ?string $navigationGroup = 'Склад';
+    protected static ?int $navigationSort = 4;
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()->isAdmin();
+    }
 
     public static function form(Form $form): Form
     {

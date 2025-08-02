@@ -60,10 +60,14 @@ class TelegramController extends Controller
                 $username = $update->getMessage()->getFrom()->getUsername();
                 $text = $update->getMessage()->getText();
 
-                Member::updateOrCreate(
-                    ['telegram_id' => $chatId],
-                    ['username' => $username]
-                );
+                $member = \App\Models\Member::query()->firstOrNew(['telegram_id' => $chatId]);
+
+                $member->username = $username;
+                if (is_null($member->full_name)) {
+                    $member->full_name = $username;
+                }
+
+                $member->save();
 
                 if ($update->getMessage()->has('photo')) {
                     $photoSizes = $update->getMessage()->get('photo');

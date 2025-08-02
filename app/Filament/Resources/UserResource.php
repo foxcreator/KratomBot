@@ -21,6 +21,13 @@ class UserResource extends Resource
     protected static ?string $navigationLabel = 'Користувачи';
     protected static ?string $label = 'Користувача';
     protected static ?string $pluralLabel = 'Користувачи';
+    protected static ?string $navigationGroup = 'Налаштування';
+    protected static ?int $navigationSort = 15;
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()->isAdmin();
+    }
 
     public static function form(Form $form): Form
     {

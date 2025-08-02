@@ -1,0 +1,26 @@
+.select2-container--default .select2-selection--multiple {
+    background-color: #454d55;
+    border: 1px solid #6c757d;
+    color: #f8f9fa;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #454d55;
+    border: 1px solid #6c757d;
+    color: #f8f9fa;
+}
+
+.select2-container--default .select2-results > .select2-results__options {
+    background-color: #454d55;
+    color: #f8f9fa;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #454d55;
+    color: #ffffff;
+}
+
+.select2-container--default .select2-results__option[aria-selected="true"] {
+    background-color: #454d55;
+    color: #ffffff;
+}
