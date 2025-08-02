@@ -3,15 +3,14 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\MemberResource\Pages;
-use App\Filament\Resources\MemberResource\RelationManagers;
+use App\Filament\Resources\MemberResource\RelationManagers\OrdersRelationManager;
 use App\Models\Member;
 use Filament\Forms;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MemberResource extends Resource
 {
@@ -36,6 +35,33 @@ class MemberResource extends Resource
                     ->maxLength(255),
                 Forms\Components\TextInput::make('username')
                     ->maxLength(255),
+                TextInput::make('full_name')
+                    ->label('Імʼя')
+                    ->required(),
+
+                TextInput::make('phone')
+                    ->label('Телефон')
+                    ->tel()
+                    ->required()
+                    ->unique('members', 'phone'),
+
+                TextInput::make('email')
+                    ->label('Email')
+                    ->email()
+                    ->unique('members', 'email')
+                    ->nullable(),
+
+                TextInput::make('address')
+                    ->label('Адреса')
+                    ->nullable(),
+
+                TextInput::make('city')
+                    ->label('Місто')
+                    ->nullable(),
+
+                TextInput::make('shipping_office')
+                    ->label('Відділення Нової пошти')
+                    ->nullable(),
             ]);
     }
 
@@ -60,7 +86,7 @@ class MemberResource extends Resource
                 //
             ])
             ->actions([
-//                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -72,7 +98,7 @@ class MemberResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            OrdersRelationManager::class
         ];
     }
 
@@ -81,7 +107,7 @@ class MemberResource extends Resource
         return [
             'index' => Pages\ListMembers::route('/'),
 //            'create' => Pages\CreateMember::route('/create'),
-//            'edit' => Pages\EditMember::route('/{record}/edit'),
+            'edit' => Pages\EditMember::route('/{record}/edit'),
         ];
     }
 }

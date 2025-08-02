@@ -88,7 +88,6 @@ class OrderItemsRelationManager extends RelationManager
                 Tables\Actions\DeleteAction::make()
                     ->after(function () {
                         $this->updateOrderTotal();
-                        $this->refreshOwnerRecord();
                     })
                     ->disabled($this->isProcessing()),
             ])

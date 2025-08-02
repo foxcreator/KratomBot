@@ -42,10 +42,10 @@ class OrderResource extends Resource
 
     protected static function isProcessing($get): bool
     {
-        if ($get('status') !== Order::STATUS_NEW) {
-            return true;
+        if (!empty($get('status')) || $get('status') !== Order::STATUS_NEW) {
+            return false;
         }
-        return false;
+        return true;
     }
 
     protected static function getStatuses($get): array
@@ -86,8 +86,12 @@ class OrderResource extends Resource
                         ->options(fn (callable $get) => self::getStatuses($get))
                         ->required()
                         ->default(Order::STATUSES[Order::STATUS_NEW])
-                        ->disabled(fn (string $context) => $context === 'create')
-                        ->disabled(fn (callable $get) => !auth()->user()->isAdmin() && $get('status') === Order::STATUS_COMPLETED)
+                        ->disabled(function (callable $get, string $context) {
+                            return (
+                                $context === 'create' ||
+                                (!auth()->user()->isAdmin() && $get('status') === Order::STATUS_COMPLETED)
+                            );
+                        })
                         ->rules([
                             function (callable $get) {
                                 return function (string $attribute, $value, Closure $fail) use ($get) {
@@ -102,7 +106,7 @@ class OrderResource extends Resource
                         ]),
                     Select::make('member_id')
                         ->label('Клієнт')
-                        ->relationship('member', 'full_name') // просто ID
+                        ->relationship('member', 'full_name')
                         ->searchable()
                         ->preload()
                         ->disabled(fn (callable $get) => self::isProcessing($get))
@@ -161,32 +165,41 @@ class OrderResource extends Resource
                     ->default('Пряме замовлення'),
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('total_amount')
-                        ->label('Сума')
+                        ->label('До оплати')
                         ->readOnly()
                         ->required()
                         ->numeric()
                         ->default(0.00)
                         ->disabled(fn (callable $get) => self::isProcessing($get))
-                        ->reactive()
-                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                            $percent = floatval($get('discount_percent'));
-                            $discount = $state * ($percent / 100);
-                            $set('discount_amount', round($discount, 2));
-                            $set('final_amount', round($state - $discount, 2));
-                        }),
-                    TextInput::make('final_amount')
-                        ->label('До оплати')
+                        ->reactive(),
+
+                    Forms\Components\TextInput::make('final_amount')
+                        ->label('Загальна сума')
                         ->numeric()
                         ->readOnly()
                         ->default(0.00)
                         ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->reactive()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            // Коли встановлюється "загальна сума", перераховуємо знижку і записуємо ДО ОПЛАТИ (total_amount)
+                            $percent = floatval($get('discount_percent'));
+                            $discount = $state * ($percent / 100);
+                            $set('discount_amount', round($discount, 2));
+                            $set('total_amount', round($state - $discount, 2));
+                        })
                         ->afterStateHydrated(function (callable $set, callable $get) {
+                            // Після завантаження форми, встановлюємо final_amount на базі total + discount
                             $total = floatval($get('total_amount'));
                             $percent = floatval($get('discount_percent'));
-                            $set('final_amount', round($total - ($total * ($percent / 100)), 2));
+                            if ($percent > 0) {
+                                $final = $total / (1 - $percent / 100);
+                                $set('final_amount', round($final, 2));
+                            } else {
+                                $set('final_amount', $total);
+                            }
                         })
                         ->dehydrated(false),
+
                     Forms\Components\TextInput::make('discount_percent')
                         ->label('Знижка %')
                         ->numeric()
@@ -194,11 +207,13 @@ class OrderResource extends Resource
                         ->reactive()
                         ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                            $total = floatval($get('total_amount'));
-                            $discount = $total * ($state / 100);
+                            // Рахуємо знижку лише на основі final_amount
+                            $final = floatval($get('final_amount'));
+                            $discount = $final * ($state / 100);
                             $set('discount_amount', round($discount, 2));
-                            $set('final_amount', round($total - $discount, 2)); // 🟢 ДОДАНО!
+                            $set('total_amount', round($final - $discount, 2));
                         }),
+
                     Forms\Components\TextInput::make('discount_amount')
                         ->label('Сума знижки')
                         ->numeric()
@@ -207,13 +222,13 @@ class OrderResource extends Resource
                         ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->reactive()
                         ->afterStateHydrated(function (callable $set, callable $get) {
-                            $total = floatval($get('total_amount'));
+                            $final = floatval($get('final_amount'));
                             $percent = floatval($get('discount_percent'));
-                            $discount = $total * ($percent / 100);
+                            $discount = $final * ($percent / 100);
                             $set('discount_amount', round($discount, 2));
                         }),
                 ])
-                ->columns(4),
+                    ->columns(4),
                 Forms\Components\Select::make('payment_type_id')
                     ->label('Тип оплати')
                     ->options(PaymentType::pluck('name', 'id'))
@@ -288,8 +303,7 @@ class OrderResource extends Resource
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('statusName')
-                    ->label('Статус')
-                    ->searchable(),
+                    ->label('Статус'),
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Сума')
                     ->numeric()
@@ -303,8 +317,7 @@ class OrderResource extends Resource
                     ->suffix('%')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('payment_type')
-                    ->label('Тип оплати')
-                    ->searchable(),
+                    ->label('Тип оплати'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Створено')
                     ->dateTime()
@@ -378,7 +391,7 @@ class OrderResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+//                    Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }
