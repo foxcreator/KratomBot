@@ -18,7 +18,7 @@ class CashRegisterResource extends Resource
 {
     protected static ?string $model = CashRegister::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-wallet';
     protected static ?string $navigationLabel = 'Каси';
     protected static ?string $label = 'Касу';
     protected static ?string $pluralLabel = 'Каси';

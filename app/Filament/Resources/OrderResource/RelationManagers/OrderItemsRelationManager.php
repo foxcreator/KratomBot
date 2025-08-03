@@ -32,11 +32,12 @@ class OrderItemsRelationManager extends RelationManager
                 ->label('Товар')
                 ->relationship('product', 'name')
                 ->required()
+                ->searchable()
                 ->reactive(),
 
             Forms\Components\Select::make('product_option_id')
                 ->label('Варіант товару')
-                ->options(fn () => ProductOption::all()->pluck('name', 'id')) // або обмежити фільтром по product_id
+                ->options(fn (callable $get) => ProductOption::where('product_id', $get('product_id'))->get()->pluck('name', 'id')) // або обмежити фільтром по product_id
                 ->searchable()
                 ->reactive()
                 ->afterStateUpdated(function ($state, callable $set) {
@@ -51,7 +52,23 @@ class OrderItemsRelationManager extends RelationManager
             Forms\Components\TextInput::make('quantity')
                 ->label('Кількість')
                 ->numeric()
-                ->default(1),
+                ->default(1)
+                ->rules([
+                    function (callable $get) {
+                        return function (string $attribute, $value, \Closure $fail) use ($get) {
+                            $optionId = $get('product_option_id');
+                            $option = \App\Models\ProductOption::find($optionId);
+
+                            if (!$option) {
+                                return $fail('Варіант товару не знайдено.');
+                            }
+
+                            if ($option->current_quantity < (int)$value) {
+                                return $fail('Недостатньо товару на складі.');
+                            }
+                        };
+                    },
+                ]),
 
             Forms\Components\TextInput::make('price')
                 ->label('Ціна за одиницю')
@@ -74,7 +91,13 @@ class OrderItemsRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
-                    ->after(function () {
+                    ->after(function (\App\Models\OrderItem $record) {
+                        $option = $record->productOption;
+                        $option->decrement('current_quantity', $record->quantity);
+                        $option->update([
+                            'in_stock' => $option->current_quantity > 0,
+                        ]);
+
                         $this->updateOrderTotal();
                     })
                     ->disabled($this->isProcessing()),

@@ -17,7 +17,7 @@ class PaymentTypeResource extends Resource
 {
     protected static ?string $model = PaymentType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-credit-card';
     protected static ?string $navigationLabel = 'Типи платежів';
     protected static ?string $label = 'Тип платежу';
     protected static ?string $pluralLabel = 'Типи платежів';

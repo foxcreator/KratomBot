@@ -12,6 +12,11 @@ class ProductOption extends Model
     protected $fillable = [
         'product_id',
         'name',
+        'in_stock',
+        'current_quantity',
+        'current_purchase_price',
+        'wholesale_price',
+        'retail_price',
         'price',
     ];
 
@@ -19,4 +24,14 @@ class ProductOption extends Model
     {
         return $this->belongsTo(Product::class);
     }
-} 
+
+    public function supplyItems()
+    {
+        return $this->hasMany(SupplyItem::class);
+    }
+
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+}
