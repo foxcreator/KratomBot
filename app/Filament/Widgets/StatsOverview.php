@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\Member;
 use App\Models\Order;
+use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -32,6 +33,10 @@ class StatsOverview extends BaseWidget
             Stat::make('Сума продаж', number_format(Order::sum('total_amount'), 2, ',', ' ') . ' ₴')
                 ->icon('heroicon-o-currency-dollar')
                 ->color('primary'),
+
+//            Stat::make('Сума продаж', number_format(Order::query()->whereBetween(Carbon::now()->startOfMonth(), Carbon::now())->sum('total_amount'), 2, ',', ' ') . ' ₴')
+//                ->icon('heroicon-o-currency-dollar')
+//                ->color('primary'),
         ];
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\Product;
 use App\Models\CartItem;
 use App\Models\OrderItem;
+use App\Settings\TelegramSetting;
 use Illuminate\Support\Facades\Log;
 use Telegram\Bot\FileUpload\InputFile;
 use Telegram\Bot\Api;
@@ -37,6 +38,7 @@ class TelegramController extends Controller
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
         $this->settings = Setting::all()->pluck('value', 'key')->toArray();
+        $this->new_settings = $settings = app(TelegramSetting::class);
     }
 
     public function setWebhook()
@@ -94,13 +96,13 @@ class TelegramController extends Controller
 
     private function sendWelcome($chatId, $username)
     {
-        $rawText = !empty($this->settings['helloMessage']) ? $this->settings['helloMessage'] : "Вітаємо, {{ username }}!\n\nОберіть дію з меню нижче:";
+        $rawText = !empty($this->settings->hello_message) ? $this->settings->hello_message : "Вітаємо, {{ username }}!\n\nОберіть дію з меню нижче:";
         $text = $this->replacePlaceholders($rawText, ['username' => '@' . $username]);
         $this->sendMainMenu($chatId, $text);
-        if (!empty($this->settings['channel'])) {
+        if (!empty($this->settings->channel)) {
             Telegram::sendMessage([
                 'chat_id' => $chatId,
-                'text' => $this->settings['channel']
+                'text' => $this->settings->channel
             ]);
         }
     }
@@ -152,7 +154,7 @@ class TelegramController extends Controller
             ];
         }
 
-        $discountPercent = isset($this->settings['telegram_channel_discount']) ? (float)$this->settings['telegram_channel_discount'] : 0;
+        $discountPercent = isset($this->settings->telegram_channel_discount) ? (float)$this->settings->telegram_channel_discount : 0;
 
         $message .= "💰 <b>Загальна сума: {$total} грн</b>";
 
@@ -399,7 +401,7 @@ class TelegramController extends Controller
             ];
         }
 
-        $discountPercent = isset($this->settings['telegram_channel_discount']) ? (float)$this->settings['telegram_channel_discount'] : 0;
+        $discountPercent = isset($this->settings->telegram_channel_discount) ? (float)$this->settings->telegram_channel_discount : 0;
 
         $message .= "💰 <b>Загальна сума: {$total} грн</b>";
 
@@ -534,7 +536,7 @@ class TelegramController extends Controller
                 $this->sendCatalogMenu($chatId);
                 break;
             case '🎁 Отримай знижку':
-                $discountInfo = $this->settings['discount_info'] ?? 'Щоб отримати знижку, підпишіться на наш Telegram-канал!';
+                $discountInfo = $this->settings->discount_info ?? 'Щоб отримати знижку, підпишіться на наш Telegram-канал!';
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
                     'text' => $discountInfo,
@@ -567,7 +569,7 @@ class TelegramController extends Controller
                                 ]
                             ];
                         }
-                        $localPath = public_path($product->image_url);
+                        $localPath = public_path('/storage/'.$product->image_url);
                         if (file_exists($localPath)) {
                             $photo = InputFile::create($localPath, basename($localPath));
                         } else {
@@ -603,7 +605,7 @@ class TelegramController extends Controller
                 $this->clearCart($chatId);
                 break;
             case '📘 Як замовити':
-                $messageText = $this->settings['howOrdering'] ?? 'Інформація відсутня.';
+                $messageText = $this->settings->how_ordering ?? 'Інформація відсутня.';
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
                     'text' => $messageText,
@@ -612,7 +614,7 @@ class TelegramController extends Controller
                 ]);
                 break;
             case '💳 Оплата':
-                $messageText = $this->settings['payment'] ?? 'Інформація відсутня.';
+                $messageText = $this->settings->payments ?? 'Інформація відсутня.';
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
                     'text' => $messageText,
@@ -621,7 +623,7 @@ class TelegramController extends Controller
                 ]);
                 break;
             case '⭐️ Відгуки':
-                $messageText = $this->settings['reviews'] ?? 'Відгуки відсутні.';
+                $messageText = $this->settings->reviews ?? 'Відгуки відсутні.';
                 Telegram::sendMessage([
                     'chat_id' => $chatId,
                     'text' => $messageText,
@@ -817,13 +819,13 @@ class TelegramController extends Controller
                     $caption .= "💰 {$product->price} грн";
                     $inlineKeyboard = [
                         [
-                            ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_' . $product->id],
+                            ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_buy_product_' . $product->id],
                             ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
                         ]
                     ];
                 }
                 if (!empty($product->image_url)) {
-                    $localPath = public_path($product->image_url);
+                    $localPath = public_path('/storage/'.$product->image_url);
                     if (file_exists($localPath)) {
                         $photo = InputFile::create($localPath, basename($localPath));
                     } else {
@@ -1064,8 +1066,13 @@ class TelegramController extends Controller
         ]);
         $inlineKeyboard = [];
         foreach ($product->options as $opt) {
+            $isAvailable = $opt->in_stock && $opt->current_quantity > 0;
+
             $inlineKeyboard[] = [
-                ['text' => $opt->name . ' — ' . $opt->price . ' грн', 'callback_data' => 'choose_option_' . $opt->id]
+                [
+                    'text' => $opt->name . ' — ' . $opt->price . ' грн' . (!$isAvailable ? ' (нема в наявності)' : ''),
+                    'callback_data' => $isAvailable ? 'choose_option_' . $opt->id : 'noop',
+                ]
             ];
         }
         $caption = "<b>{$product->name}</b>\n\n{$product->description}";
@@ -1098,11 +1105,11 @@ class TelegramController extends Controller
         $state['payment_type'] = 'prepaid';
         $member->checkout_state = $state;
         $member->save();
-        $requisites = $this->settings['payments'] ?? 'Реквізити для оплати: ...';
+        $requisites = $this->settings->payments ?? 'Реквізити для оплати: ...';
         $requisites = $this->formatCodeBlocks($requisites);
 
         $total = $state['total'] ?? 0;
-        $discountPercent = isset($this->settings['telegram_channel_discount']) ? (float)$this->settings['telegram_channel_discount'] : 0;
+        $discountPercent = isset($this->settings->telegram_channel_discount) ? (float)$this->settings->telegram_channel_discount : 0;
         $isSubscribed = $this->isUserSubscribedToChannel($chatId);
 
         if ($isSubscribed && $discountPercent > 0) {
@@ -1139,7 +1146,7 @@ class TelegramController extends Controller
         $state = $member->checkout_state;
         $cartSnapshot = $state['cart_snapshot'] ?? [];
         $total = $state['total'] ?? 0;
-        $discountPercent = isset($this->settings['telegram_channel_discount']) ? (float)$this->settings['telegram_channel_discount'] : 0;
+        $discountPercent = isset($this->settings->telegram_channel_discount) ? (float)$this->settings->telegram_channel_discount : 0;
         $isSubscribed = $this->isUserSubscribedToChannel($chatId);
         $discountAmount = 0;
         $totalWithDiscount = $total;
@@ -1344,7 +1351,7 @@ class TelegramController extends Controller
 
     private function isUserSubscribedToChannel($chatId)
     {
-        $channelUsername = $this->settings['telegram_channel_username'] ?? '@auraaashopp';
+        $channelUsername = $this->settings->telegram_channel_username ?? '@auraaashopp';
         try {
             $member = $this->telegram->getChatMember([
                 'chat_id' => $channelUsername,

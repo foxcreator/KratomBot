@@ -21,7 +21,7 @@ class BrandResource extends Resource
     protected static ?string $label = 'Категорія';
     protected static ?string $pluralLabel = 'Категорії';
     protected static ?string $navigationGroup = 'Склад';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-rectangle-group';
     protected static ?int $navigationSort = 3;
 
     public static function canAccess(): bool

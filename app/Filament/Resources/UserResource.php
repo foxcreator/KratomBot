@@ -17,7 +17,7 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-user-circle';
     protected static ?string $navigationLabel = 'Користувачи';
     protected static ?string $label = 'Користувача';
     protected static ?string $pluralLabel = 'Користувачи';
@@ -37,6 +37,9 @@ class UserResource extends Resource
                     ->label('Імʼя')
                     ->required()
                     ->maxLength(255),
+                Forms\Components\TextInput::make('phone')
+                    ->label('Номер телефону')
+                    ->maxLength(255),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()
@@ -46,6 +49,9 @@ class UserResource extends Resource
                     ->password()
                     ->required()
                     ->maxLength(255),
+                Forms\Components\Toggle::make('is_admin')
+                    ->label('Менеджер / Адмін')
+                    ->default(false)
             ]);
     }
 
