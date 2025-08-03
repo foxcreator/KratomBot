@@ -12,6 +12,12 @@ use Filament\Pages\SettingsPage;
 class ManageTelegram extends SettingsPage
 {
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
+    protected static ?string $navigationLabel = 'Налаштування бота';
+
+    protected static ?string $navigationGroup = 'Налаштування';
+    protected ?string $heading = 'Налаштування бота';
+    protected static ?int $navigationSort = 15;
+
 
     protected static string $settings = TelegramSetting::class;
 

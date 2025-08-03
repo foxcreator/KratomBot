@@ -21,6 +21,8 @@ class SupplyResource extends Resource
     protected static ?string $navigationLabel = 'Поставки';
     protected static ?string $pluralLabel = 'Поставки';
     protected static ?string $modelLabel = 'Поставка';
+    protected static ?string $navigationGroup = 'Склад';
+    protected static ?int $navigationSort = 13;
 
     public static function form(Forms\Form $form): Forms\Form
     {
