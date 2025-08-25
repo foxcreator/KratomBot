@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
 //            'name' => 'Kratom Admin',
 //            'email' => 'puresportdp@gmail.com',
 //            'password' => 'adminKratom24',
+//            'password' => 'adminKratom24',
 //        ]);
 
         User::factory()->create([
