@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 
 class Member extends Model
 {
@@ -57,7 +58,8 @@ class Member extends Model
 
     public function getFullNameAttribute(): string
     {
-        $name = $this->attributes['full_name'] ?? $this->attributes['username'];
-        return $name ?? 'Без імені';
+        return Arr::get($this->attributes, 'full_name')
+            ?? Arr::get($this->attributes, 'username')
+            ?? 'Без імені';
     }
 }
