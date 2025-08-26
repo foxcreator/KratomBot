@@ -31,7 +31,8 @@ class SupplyResource extends Resource
                 ->schema([
                     Forms\Components\TextInput::make('number')
                         ->label('Номер поставки')
-                        ->required()
+                        ->disabled()
+                        ->dehydrated(false)
                         ->maxLength(255),
                     Forms\Components\DatePicker::make('date')
                         ->label('Дата')

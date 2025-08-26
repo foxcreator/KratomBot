@@ -20,7 +20,7 @@ class CreateSupply extends CreateRecord
     {
         $record = $this->record;
 
-        foreach ($record->items as $item) {
+        foreach ($record->supplyItems as $item) {
             // оновлюємо залишки
             $productOption = $item->productOption;
 
