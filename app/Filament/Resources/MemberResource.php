@@ -30,10 +30,6 @@ class MemberResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('telegram_id')
-                    ->tel()
-                    ->required()
-                    ->maxLength(255),
                 Forms\Components\TextInput::make('username')
                     ->maxLength(255),
                 TextInput::make('full_name')
