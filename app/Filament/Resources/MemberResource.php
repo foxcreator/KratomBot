@@ -11,6 +11,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Filters\SelectFilter;
 
 class MemberResource extends Resource
 {
@@ -69,21 +70,49 @@ class MemberResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('full_name')
+                    ->label('Імʼя')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('phone')
+                    ->label('Телефон')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('telegram_id')
+                    ->label('Telegram ID')
+                    ->searchable()
+                    ->formatStateUsing(fn ($state) => $state ? '✅' : '❌')
+                    ->badge()
+                    ->color(fn ($state) => $state ? 'success' : 'danger'),
+                Tables\Columns\TextColumn::make('username')
+                    ->label('Username')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Дата реєстрації')
+                    ->dateTime('d.m.Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->label('Оновлено')
+                    ->dateTime('d.m.Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('username')
-                    ->searchable(),
             ])
             ->filters([
-                //
+                SelectFilter::make('telegram_status')
+                    ->label('Статус Telegram')
+                    ->options([
+                        'with_telegram' => 'З Telegram',
+                        'without_telegram' => 'Без Telegram',
+                    ])
+                    ->query(function ($query, array $data) {
+                        if ($data['value'] === 'with_telegram') {
+                            return $query->whereNotNull('telegram_id');
+                        }
+                        if ($data['value'] === 'without_telegram') {
+                            return $query->whereNull('telegram_id');
+                        }
+                        return $query;
+                    })
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
