@@ -15,6 +15,10 @@ class OrderItemsRelationManager extends RelationManager
 {
     protected static string $relationship = 'orderItems';
     protected static ?string $recordTitleAttribute = 'id';
+    
+    protected static ?string $title = 'Товари замовлення';
+    protected static ?string $label = 'Товар';
+    protected static ?string $pluralLabel = 'Товари';
 
     protected function isProcessing(): bool
     {
@@ -33,13 +37,15 @@ class OrderItemsRelationManager extends RelationManager
                 ->relationship('product', 'name')
                 ->required()
                 ->searchable()
-                ->reactive(),
+                ->reactive()
+                ->placeholder('Оберіть товар'),
 
             Forms\Components\Select::make('product_option_id')
                 ->label('Варіант товару')
-                ->options(fn (callable $get) => ProductOption::where('product_id', $get('product_id'))->get()->pluck('name', 'id')) // або обмежити фільтром по product_id
+                ->options(fn (callable $get) => ProductOption::where('product_id', $get('product_id'))->get()->pluck('name', 'id'))
                 ->searchable()
                 ->reactive()
+                ->placeholder('Оберіть варіант товару')
                 ->afterStateUpdated(function ($state, callable $set) {
                     $option = ProductOption::find($state);
                     if ($option) {
@@ -53,6 +59,8 @@ class OrderItemsRelationManager extends RelationManager
                 ->label('Кількість')
                 ->numeric()
                 ->default(1)
+                ->minValue(1)
+                ->required()
                 ->rules([
                     function (callable $get) {
                         return function (string $attribute, $value, \Closure $fail) use ($get) {
@@ -72,7 +80,9 @@ class OrderItemsRelationManager extends RelationManager
 
             Forms\Components\TextInput::make('price')
                 ->label('Ціна за одиницю')
-                ->numeric(),
+                ->numeric()
+                ->required()
+                ->prefix('₴'),
 
         ]);
     }
@@ -89,33 +99,70 @@ class OrderItemsRelationManager extends RelationManager
                     fn($record) => $record->quantity * $record->price
                 ),
             ])
+            ->poll('30s') // Автоматичне оновлення кожні 30 секунд
+            ->emptyStateHeading('Товари не додані')
+            ->emptyStateDescription('Додайте товари до замовлення, натиснувши кнопку "Додати товар"')
+            ->emptyStateIcon('heroicon-o-shopping-cart')
             ->headerActions([
                 Tables\Actions\CreateAction::make()
+                    ->label('Додати товар')
+                    ->modalHeading('Додати товар до замовлення')
+                    ->modalSubmitActionLabel('Додати')
+                    ->modalCancelActionLabel('Скасувати')
                     ->after(function (\App\Models\OrderItem $record) {
                         $option = $record->productOption;
-                        $option->decrement('current_quantity', $record->quantity);
-                        $option->update([
-                            'in_stock' => $option->current_quantity > 0,
-                        ]);
+                        if ($option) {
+                            $option->decrement('current_quantity', $record->quantity);
+                            $option->update([
+                                'in_stock' => $option->current_quantity > 0,
+                            ]);
+                        }
 
                         $this->updateOrderTotal();
                     })
-                    ->disabled($this->isProcessing()),
+                    ->disabled($this->isProcessing())
+                    ->successNotification(
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Товар додано до замовлення')
+                            ->body('Товар успішно додано до замовлення')
+                    ),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
+                    ->label('Редагувати')
+                    ->modalHeading('Редагувати товар у замовленні')
+                    ->modalSubmitActionLabel('Зберегти')
+                    ->modalCancelActionLabel('Скасувати')
                     ->after(function () {
                         $this->updateOrderTotal();
                     })
-                    ->disabled($this->isProcessing()),
+                    ->disabled($this->isProcessing())
+                    ->successNotification(
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Товар оновлено')
+                            ->body('Товар у замовленні успішно оновлено')
+                    ),
                 Tables\Actions\DeleteAction::make()
+                    ->label('Видалити')
+                    ->modalHeading('Видалити товар з замовлення')
+                    ->modalSubmitActionLabel('Видалити')
+                    ->modalCancelActionLabel('Скасувати')
                     ->after(function () {
                         $this->updateOrderTotal();
                     })
-                    ->disabled($this->isProcessing()),
+                    ->disabled($this->isProcessing())
+                    ->successNotification(
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Товар видалено')
+                            ->body('Товар успішно видалено з замовлення')
+                    ),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make()
+                    ->label('Видалити вибрані')
                     ->disabled($this->isProcessing()),
             ]);
     }
@@ -125,10 +172,34 @@ class OrderItemsRelationManager extends RelationManager
         $order = $this->getOwnerRecord();
         $total = $order->orderItems()->sum(DB::raw('quantity * price'));
 
-        $order->update([
-            'total_amount' => $total,
-        ]);
-        $this->redirect(request()->header('Referer'));
-
+        // Оновлюємо final_amount якщо є знижка
+        $discountPercent = $order->discount_percent ?? 0;
+        if ($discountPercent > 0) {
+            $finalAmount = $total / (1 - $discountPercent / 100);
+            $discountAmount = $finalAmount - $total;
+            $order->update([
+                'total_amount' => $total,
+                'final_amount' => round($finalAmount, 2),
+                'discount_amount' => round($discountAmount, 2),
+                'remaining_amount' => $total - ($order->paid_amount ?? 0),
+            ]);
+        } else {
+            $order->update([
+                'total_amount' => $total,
+                'final_amount' => $total,
+                'discount_amount' => 0,
+                'remaining_amount' => $total - ($order->paid_amount ?? 0),
+            ]);
+        }
+        
+        // Оновлюємо статус оплати
+        $remaining = $order->remaining_amount;
+        if ($remaining <= 0) {
+            $order->update(['payment_status' => 'paid']);
+        } elseif ($order->paid_amount > 0) {
+            $order->update(['payment_status' => 'partial_paid']);
+        } else {
+            $order->update(['payment_status' => 'unpaid']);
+        }
     }
 }
