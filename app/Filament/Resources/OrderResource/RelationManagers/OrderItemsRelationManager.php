@@ -172,25 +172,23 @@ class OrderItemsRelationManager extends RelationManager
         $order = $this->getOwnerRecord();
         $total = $order->orderItems()->sum(DB::raw('quantity * price'));
 
-        // Оновлюємо final_amount якщо є знижка
+        // Розраховуємо знижку
         $discountPercent = $order->discount_percent ?? 0;
+        $discountAmount = 0;
+        $finalAmount = $total;
+        
         if ($discountPercent > 0) {
-            $finalAmount = $total / (1 - $discountPercent / 100);
-            $discountAmount = $finalAmount - $total;
-            $order->update([
-                'total_amount' => $total,
-                'final_amount' => round($finalAmount, 2),
-                'discount_amount' => round($discountAmount, 2),
-                'remaining_amount' => $total - ($order->paid_amount ?? 0),
-            ]);
-        } else {
-            $order->update([
-                'total_amount' => $total,
-                'final_amount' => $total,
-                'discount_amount' => 0,
-                'remaining_amount' => $total - ($order->paid_amount ?? 0),
-            ]);
+            $discountAmount = $total * ($discountPercent / 100);
+            $finalAmount = $total - $discountAmount;
         }
+
+        // Оновлюємо замовлення
+        $order->update([
+            'total_amount' => $total,
+            'final_amount' => round($finalAmount, 2),
+            'discount_amount' => round($discountAmount, 2),
+            'remaining_amount' => round($finalAmount - ($order->paid_amount ?? 0), 2),
+        ]);
         
         // Оновлюємо статус оплати
         $remaining = $order->remaining_amount;

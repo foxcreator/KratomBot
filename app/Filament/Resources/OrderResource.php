@@ -335,7 +335,7 @@ class OrderResource extends Resource
                     ->label('Статус'),
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Сума')
-                    ->numeric()
+                    ->money('UAH')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('paid_amount')
                     ->label('Сплачено')
