@@ -12,9 +12,14 @@ class Order extends Model
 
     protected $fillable = [
         'member_id',
+        'debt_account_id',
         'order_number',
         'status',
         'total_amount',
+        'final_amount',
+        'paid_amount',
+        'remaining_amount',
+        'payment_status',
         'notes',
         'source',
         'payment_type_id',
@@ -31,6 +36,9 @@ class Order extends Model
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'final_amount' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'remaining_amount' => 'decimal:2',
         'discount_percent' => 'decimal:2',
         'discount_amount' => 'decimal:2',
     ];
@@ -45,6 +53,18 @@ class Order extends Model
         self::STATUS_COMPLETED => 'Виконано',
         self::STATUS_PROCESSING => 'Оплачено',
         self::STATUS_CANCELLED => 'Скасовано',
+    ];
+
+    const PAYMENT_STATUS_UNPAID = 'unpaid';
+    const PAYMENT_STATUS_PARTIAL_PAID = 'partial_paid';
+    const PAYMENT_STATUS_PAID = 'paid';
+    const PAYMENT_STATUS_OVERPAID = 'overpaid';
+
+    const PAYMENT_STATUSES = [
+        self::PAYMENT_STATUS_UNPAID => 'Не оплачено',
+        self::PAYMENT_STATUS_PARTIAL_PAID => 'Частково оплачено',
+        self::PAYMENT_STATUS_PAID => 'Оплачено',
+        self::PAYMENT_STATUS_OVERPAID => 'Переплачено',
     ];
 
     protected static function boot()
@@ -76,6 +96,11 @@ class Order extends Model
         return $this->belongsTo(Member::class);
     }
 
+    public function debtAccount()
+    {
+        return $this->belongsTo(DebtAccount::class);
+    }
+
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
@@ -103,6 +128,11 @@ class Order extends Model
         return $this->belongsTo(CashRegister::class);
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     public function getTotalItemsAttribute()
     {
         return $this->orderItems->sum('quantity');
@@ -116,5 +146,25 @@ class Order extends Model
     public function getStatusNameAttribute()
     {
         return self::STATUSES[$this->status];
+    }
+
+    public function getPaymentStatusNameAttribute()
+    {
+        return self::PAYMENT_STATUSES[$this->payment_status] ?? 'Невідомо';
+    }
+
+    public function getFormattedFinalAmountAttribute()
+    {
+        return number_format($this->final_amount ?? $this->total_amount, 2) . ' грн';
+    }
+
+    public function getFormattedPaidAmountAttribute()
+    {
+        return number_format($this->paid_amount, 2) . ' грн';
+    }
+
+    public function getFormattedRemainingAmountAttribute()
+    {
+        return number_format($this->remaining_amount, 2) . ' грн';
     }
 }
