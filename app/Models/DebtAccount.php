@@ -16,6 +16,7 @@ class DebtAccount extends Model
         'total_debt',
         'paid_amount',
         'remaining_debt',
+        'balance',
         'status',
         'last_payment_date',
         'notes',
@@ -25,6 +26,7 @@ class DebtAccount extends Model
         'total_debt' => 'decimal:2',
         'paid_amount' => 'decimal:2',
         'remaining_debt' => 'decimal:2',
+        'balance' => 'decimal:2',
         'last_payment_date' => 'datetime',
     ];
 
@@ -90,10 +92,11 @@ class DebtAccount extends Model
         return number_format($this->remaining_debt, 2) . ' грн';
     }
 
-    public function addPayment(float $amount, int $paymentTypeId, int $cashRegisterId, ?int $orderId = null, ?string $notes = null): Payment
+    public function addPayment(float $amount, int $paymentTypeId, int $cashRegisterId, ?int $orderId = null, ?string $notes = null, string $paymentMethod = Payment::PAYMENT_METHOD_CASH): Payment
     {
         $payment = $this->payments()->create([
             'amount' => $amount,
+            'payment_method' => $paymentMethod,
             'payment_type_id' => $paymentTypeId,
             'cash_register_id' => $cashRegisterId,
             'order_id' => $orderId,
@@ -101,9 +104,16 @@ class DebtAccount extends Model
             'notes' => $notes,
         ]);
 
-        // Оновлюємо суми
-        $this->increment('paid_amount', $amount);
+        // Оновлюємо дату останнього платежу
         $this->update(['last_payment_date' => now()]);
+        
+        // Перераховуємо всі суми автоматично
+        $this->recalculateTotals();
+
+        // Якщо платіж з балансу - списуємо з балансу
+        if ($paymentMethod === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+            $this->decrement('balance', $amount);
+        }
 
         // Оновлюємо замовлення якщо вказано
         if ($orderId) {
@@ -118,5 +128,35 @@ class DebtAccount extends Model
         }
 
         return $payment;
+    }
+
+    public function addToBalance(float $amount, ?string $notes = null): void
+    {
+        $this->increment('balance', $amount);
+        
+        // Створюємо запис про поповнення балансу
+        $this->payments()->create([
+            'amount' => $amount,
+            'payment_method' => Payment::PAYMENT_METHOD_CASH,
+            'payment_type_id' => 1, // Готівка
+            'cash_register_id' => 1, // Основна каса
+            'payment_date' => now(),
+            'notes' => $notes ?? 'Поповнення балансу',
+        ]);
+    }
+    
+    /**
+     * Перераховує всі суми автоматично
+     */
+    public function recalculateTotals(): void
+    {
+        $totalDebt = $this->orders()->sum('final_amount');
+        $totalPaid = $this->payments()->sum('amount');
+        
+        $this->update([
+            'total_debt' => $totalDebt,
+            'paid_amount' => $totalPaid,
+            'remaining_debt' => $totalDebt - $totalPaid,
+        ]);
     }
 }

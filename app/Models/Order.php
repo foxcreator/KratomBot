@@ -79,6 +79,22 @@ class Order extends Model
                 $order->order_number = 'ORD-'. date('Ymd') . $order->id;
                 $order->save();
             }
+            
+            // Автоматично створюємо DebtAccount для клієнта, якщо його немає
+            if ($order->member_id && !$order->debt_account_id) {
+                $debtAccount = \App\Models\DebtAccount::firstOrCreate(
+                    ['member_id' => $order->member_id],
+                    [
+                        'total_debt' => 0,
+                        'paid_amount' => 0,
+                        'remaining_debt' => 0,
+                        'balance' => 0,
+                        'status' => \App\Models\DebtAccount::STATUS_ACTIVE,
+                    ]
+                );
+                
+                $order->update(['debt_account_id' => $debtAccount->id]);
+            }
         });
 
         static::updated(function (Order $order) {
@@ -190,6 +206,26 @@ class Order extends Model
             $this->update([
                 'status' => self::STATUS_PENDING_PAYMENT,
                 'payment_status' => self::PAYMENT_STATUS_UNPAID
+            ]);
+        }
+        
+        // Оновлюємо загальний борг в DebtAccount
+        $this->updateDebtAccountTotals();
+    }
+    
+    /**
+     * Оновлює загальні суми в DebtAccount
+     */
+    public function updateDebtAccountTotals(): void
+    {
+        if ($this->debtAccount) {
+            $totalDebt = $this->debtAccount->orders()->sum('final_amount');
+            $totalPaid = $this->debtAccount->payments()->sum('amount');
+            
+            $this->debtAccount->update([
+                'total_debt' => $totalDebt,
+                'paid_amount' => $totalPaid,
+                'remaining_debt' => $totalDebt - $totalPaid,
             ]);
         }
     }

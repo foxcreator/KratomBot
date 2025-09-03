@@ -50,6 +50,14 @@ class PaymentResource extends Resource
                     ->prefix('₴')
                     ->required(),
 
+                Forms\Components\Select::make('payment_method')
+                    ->label('Спосіб платежу')
+                    ->options(Payment::PAYMENT_METHODS)
+                    ->default(Payment::PAYMENT_METHOD_CASH)
+                    ->required()
+                    ->reactive()
+                    ->helperText('Готівка/Переказ - внесення коштів, Списання з балансу - списання з рахунку клієнта'),
+
                 Forms\Components\Select::make('payment_type_id')
                     ->label('Тип оплати')
                     ->relationship('paymentType', 'name')
@@ -68,6 +76,20 @@ class PaymentResource extends Resource
                 Forms\Components\TextInput::make('receipt_number')
                     ->label('Номер квитанції')
                     ->disabled(),
+
+                Forms\Components\FileUpload::make('receipts')
+                    ->label('Квитанції')
+                    ->multiple()
+                    ->image()
+                    ->imageEditor()
+                    ->imageEditorAspectRatios([
+                        '16:9',
+                        '4:3',
+                        '1:1',
+                    ])
+                    ->maxFiles(5)
+                    ->helperText('Можна прикріпити до 5 квитанцій')
+                    ->columnSpanFull(),
 
                 Forms\Components\Textarea::make('notes')
                     ->label('Нотатки')

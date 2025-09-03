@@ -10,20 +10,31 @@ class Payment extends Model
 {
     use HasFactory;
 
+    const PAYMENT_METHOD_CASH = 'cash';
+    const PAYMENT_METHOD_BALANCE_DEDUCTION = 'balance_deduction';
+
+    const PAYMENT_METHODS = [
+        self::PAYMENT_METHOD_CASH => 'Готівка/Переказ',
+        self::PAYMENT_METHOD_BALANCE_DEDUCTION => 'Списання з балансу',
+    ];
+
     protected $fillable = [
         'debt_account_id',
         'order_id',
         'amount',
+        'payment_method',
         'payment_type_id',
         'cash_register_id',
         'payment_date',
         'notes',
         'receipt_number',
+        'receipts',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'payment_date' => 'date',
+        'receipts' => 'array',
     ];
 
     protected static function boot()

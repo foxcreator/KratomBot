@@ -99,7 +99,7 @@ class OrderItemsRelationManager extends RelationManager
                     fn($record) => $record->quantity * $record->price
                 ),
             ])
-            ->poll('30s') // Автоматичне оновлення кожні 30 секунд
+            ->poll('5s') // Автоматичне оновлення кожні 5 секунд
             ->emptyStateHeading('Товари не додані')
             ->emptyStateDescription('Додайте товари до замовлення, натиснувши кнопку "Додати товар"')
             ->emptyStateIcon('heroicon-o-shopping-cart')
@@ -192,5 +192,10 @@ class OrderItemsRelationManager extends RelationManager
         
         // Автоматично оновлюємо статус замовлення
         $order->updateStatusBasedOnPayments();
+        
+        // Оновлюємо загальні суми в DebtAccount
+        if ($order->debtAccount) {
+            $order->debtAccount->recalculateTotals();
+        }
     }
 }

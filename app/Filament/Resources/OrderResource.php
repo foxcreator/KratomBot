@@ -116,18 +116,7 @@ class OrderResource extends Resource
                                 (!auth()->user()->isAdmin() && $get('status') === Order::STATUS_COMPLETED)
                             );
                         })
-                        ->rules([
-                            function (callable $get) {
-                                return function (string $attribute, $value, Closure $fail) use ($get) {
-                                    if (
-                                        $value === Order::STATUS_PROCESSING &&
-                                        empty($get('payment_receipt'))
-                                    ) {
-                                        $fail('Не можна встановити статус "Оплачено" без підтвердження оплати.');
-                                    }
-                                };
-                            },
-                        ]),
+                        ->rules([]),
                     Select::make('member_id')
                         ->label('Клієнт')
                         ->required()
@@ -255,15 +244,15 @@ class OrderResource extends Resource
                 ])
                     ->columns(4),
 
-                Forms\Components\Section::make('Статус оплати')
+                Forms\Components\Section::make('Фінансові показники')
                     ->schema([
                         Forms\Components\TextInput::make('paid_amount')
                             ->label('Сплачено')
                             ->numeric()
                             ->prefix('₴')
                             ->default(0.00)
-                            ->disabled(fn (callable $get) => self::isProcessing($get))
-                            ->reactive(),
+                            ->disabled(true)
+                            ->helperText('Розраховується автоматично з платежів'),
 
                         Forms\Components\TextInput::make('remaining_amount')
                             ->label('Залишок до сплати')
@@ -271,28 +260,18 @@ class OrderResource extends Resource
                             ->prefix('₴')
                             ->readOnly()
                             ->default(0.00)
-                            ->disabled(fn (callable $get) => self::isProcessing($get))
-                            ->reactive(),
+                            ->helperText('Розраховується автоматично'),
 
-                        Forms\Components\Select::make('payment_status')
+                        Forms\Components\TextInput::make('payment_status')
                             ->label('Статус оплати')
-                            ->options(Order::PAYMENT_STATUSES)
-                            ->default(Order::PAYMENT_STATUS_UNPAID)
-                            ->disabled(fn (callable $get) => self::isProcessing($get))
-                            ->reactive(),
+                            ->disabled(true)
+                            ->helperText('Оновлюється автоматично при внесенні платежів')
+                            ->formatStateUsing(fn ($state) => Order::PAYMENT_STATUSES[$state] ?? 'Невідомо'),
                     ])
                     ->columns(3),
 
 
-                FileUpload::make('payment_receipt')
-                    ->label('Фото квитанції')
-                    ->image()
-                    ->directory('receipts')
-                    ->imagePreviewHeight('200')
-                    ->preserveFilenames()
-                    ->maxSize(4096)
-                    ->disabled(fn (callable $get) => self::isProcessing($get))
-                    ->required(false),
+                // Квитанції тепер прикріплюються до платежів в розділі "Платежі"
 
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('shipping_phone')
@@ -406,19 +385,7 @@ class OrderResource extends Resource
                     ->searchable(),
             ])
             ->actions([
-                Action::make('showReceipt')
-                    ->label('Квитанція')
-                    ->icon('heroicon-o-eye')
-                    ->modalHeading('Квитанція')
-                    ->visible(fn ($record) => $record->payment_receipt !== null)
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Закрити')
-                    ->modalContent(function ($record) {
-                        $receiptUrl = asset('storage/' . ltrim($record->payment_receipt, '/'));
-                        return view('components.receipt-modal', [
-                            'receiptUrl' => $receiptUrl,
-                        ]);
-                    }),
+                // Квитанції тепер переглядаються в розділі "Платежі"
                 Tables\Actions\EditAction::make(),
                 Action::make('sendMessage')
                     ->label('Відправити повідомлення')

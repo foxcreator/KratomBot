@@ -8,6 +8,7 @@
         "php": "^8.2",
         "filament/filament": "^3.3",
         "filament/spatie-laravel-settings-plugin": "^3.3",
+        "guava/filament-knowledge-base": "^1.14",
         "guzzlehttp/guzzle": "^7.8",
         "irazasyed/telegram-bot-sdk": "^3.14",
         "laravel/framework": "^11.9",

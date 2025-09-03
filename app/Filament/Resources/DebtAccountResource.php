@@ -59,20 +59,22 @@ class DebtAccountResource extends Resource
                     ->label('Загальна сума боргу')
                     ->numeric()
                     ->prefix('₴')
-                    ->required(),
+                    ->disabled(true)
+                    ->helperText('Розраховується автоматично з замовлень'),
 
                 Forms\Components\TextInput::make('paid_amount')
                     ->label('Сплачена сума')
                     ->numeric()
                     ->prefix('₴')
-                    ->default(0),
+                    ->disabled(true)
+                    ->helperText('Розраховується автоматично з платежів'),
 
                 Forms\Components\TextInput::make('remaining_debt')
                     ->label('Залишок боргу')
                     ->numeric()
                     ->prefix('₴')
-                    ->disabled()
-                    ->dehydrated(false),
+                    ->disabled(true)
+                    ->helperText('Розраховується автоматично'),
 
                 Forms\Components\Select::make('status')
                     ->label('Статус')
@@ -114,6 +116,12 @@ class DebtAccountResource extends Resource
                     ->money('UAH')
                     ->sortable()
                     ->color(fn ($record) => $record->remaining_debt > 0 ? 'danger' : 'success'),
+
+                Tables\Columns\TextColumn::make('balance')
+                    ->label('Баланс клієнта')
+                    ->money('UAH')
+                    ->sortable()
+                    ->color(fn ($record) => $record->balance > 0 ? 'success' : 'gray'),
 
                 Tables\Columns\TextColumn::make('statusName')
                     ->label('Статус')
@@ -201,7 +209,7 @@ class DebtAccountResource extends Resource
     {
         return [
             'index' => Pages\ListDebtAccounts::route('/'),
-            'create' => Pages\CreateDebtAccount::route('/create'),
+            // 'create' => Pages\CreateDebtAccount::route('/create'), // Прибрано - створюється автоматично
             'edit' => Pages\EditDebtAccount::route('/{record}/edit'),
         ];
     }
