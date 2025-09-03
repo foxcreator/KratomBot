@@ -18,3 +18,10 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Filament generated files
+/public/css/filament/
+/public/js/filament/
+
+# macOS
+.DS_Store
