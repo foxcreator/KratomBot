@@ -106,6 +106,7 @@ class OrderResource extends Resource
                         ]),
                     Select::make('member_id')
                         ->label('Клієнт')
+                        ->required()
                         ->relationship('member', 'full_name')
                         ->searchable()
                         ->preload()
@@ -229,6 +230,34 @@ class OrderResource extends Resource
                         }),
                 ])
                     ->columns(4),
+
+                Forms\Components\Section::make('Статус оплати')
+                    ->schema([
+                        Forms\Components\TextInput::make('paid_amount')
+                            ->label('Сплачено')
+                            ->numeric()
+                            ->prefix('₴')
+                            ->default(0.00)
+                            ->disabled(fn (callable $get) => self::isProcessing($get))
+                            ->reactive(),
+
+                        Forms\Components\TextInput::make('remaining_amount')
+                            ->label('Залишок до сплати')
+                            ->numeric()
+                            ->prefix('₴')
+                            ->readOnly()
+                            ->default(0.00)
+                            ->disabled(fn (callable $get) => self::isProcessing($get))
+                            ->reactive(),
+
+                        Forms\Components\Select::make('payment_status')
+                            ->label('Статус оплати')
+                            ->options(Order::PAYMENT_STATUSES)
+                            ->default(Order::PAYMENT_STATUS_UNPAID)
+                            ->disabled(fn (callable $get) => self::isProcessing($get))
+                            ->reactive(),
+                    ])
+                    ->columns(3),
                 Forms\Components\Select::make('payment_type_id')
                     ->label('Тип оплати')
                     ->options(PaymentType::pluck('name', 'id'))
@@ -308,6 +337,24 @@ class OrderResource extends Resource
                     ->label('Сума')
                     ->numeric()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('paid_amount')
+                    ->label('Сплачено')
+                    ->money('UAH')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('remaining_amount')
+                    ->label('Залишок')
+                    ->money('UAH')
+                    ->sortable()
+                    ->color(fn ($record) => $record->remaining_amount > 0 ? 'danger' : 'success'),
+                Tables\Columns\TextColumn::make('paymentStatusName')
+                    ->label('Статус оплати')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Не оплачено' => 'danger',
+                        'Частково оплачено' => 'warning',
+                        'Оплачено' => 'success',
+                        'Переплачено' => 'info',
+                    }),
                 Tables\Columns\TextColumn::make('shipping_phone')
                     ->label('Телефон отримувача')
                     ->searchable(),
@@ -344,6 +391,11 @@ class OrderResource extends Resource
                 SelectFilter::make('status')
                     ->label('Статус замовлення')
                     ->options(Order::STATUSES)
+                    ->placeholder('Всі')
+                    ->searchable(),
+                SelectFilter::make('payment_status')
+                    ->label('Статус оплати')
+                    ->options(Order::PAYMENT_STATUSES)
                     ->placeholder('Всі')
                     ->searchable(),
             ])
@@ -400,6 +452,7 @@ class OrderResource extends Resource
     {
         return [
             RelationManagers\OrderItemsRelationManager::class,
+            RelationManagers\PaymentsRelationManager::class,
         ];
     }
 
