@@ -50,19 +50,43 @@ class OrderResource extends Resource
 
     protected static function getStatuses($get): array
     {
-        if ($get('status') === Order::STATUS_NEW || auth()->user()->isAdmin()) {
-            return Order::STATUSES;
-        } elseif ($get('status') === Order::STATUS_PROCESSING) {
-            $data = Order::STATUSES;
-            if (!auth()->user()->isAdmin()) {
-                unset($data[Order::STATUS_NEW]);
-            }
-            unset($data[Order::STATUS_CANCELLED]);
-            return $data;
-        } else {
-            $data = Order::STATUSES;
-            unset($data[Order::STATUS_NEW]);
-            return $data;
+        $statuses = Order::STATUSES;
+        
+        // Адміністратор може змінювати будь-який статус
+        if (auth()->user()->isAdmin()) {
+            return $statuses;
+        }
+        
+        // Звичайні користувачі мають обмежені можливості
+        $currentStatus = $get('status');
+        
+        switch ($currentStatus) {
+            case Order::STATUS_NEW:
+            case Order::STATUS_PENDING_PAYMENT:
+                return [
+                    Order::STATUS_PENDING_PAYMENT => $statuses[Order::STATUS_PENDING_PAYMENT],
+                    Order::STATUS_PARTIALLY_PAID => $statuses[Order::STATUS_PARTIALLY_PAID],
+                    Order::STATUS_PAID => $statuses[Order::STATUS_PAID],
+                    Order::STATUS_PROCESSING => $statuses[Order::STATUS_PROCESSING],
+                ];
+                
+            case Order::STATUS_PARTIALLY_PAID:
+                return [
+                    Order::STATUS_PARTIALLY_PAID => $statuses[Order::STATUS_PARTIALLY_PAID],
+                    Order::STATUS_PAID => $statuses[Order::STATUS_PAID],
+                    Order::STATUS_PROCESSING => $statuses[Order::STATUS_PROCESSING],
+                ];
+                
+            case Order::STATUS_PAID:
+            case Order::STATUS_PROCESSING:
+                return [
+                    Order::STATUS_PAID => $statuses[Order::STATUS_PAID],
+                    Order::STATUS_PROCESSING => $statuses[Order::STATUS_PROCESSING],
+                    Order::STATUS_COMPLETED => $statuses[Order::STATUS_COMPLETED],
+                ];
+                
+            default:
+                return $statuses;
         }
     }
 
@@ -85,7 +109,7 @@ class OrderResource extends Resource
                         ->label('Статус')
                         ->options(fn (callable $get) => self::getStatuses($get))
                         ->required()
-                        ->default(Order::STATUSES[Order::STATUS_NEW])
+                        ->default(Order::STATUS_PENDING_PAYMENT)
                         ->disabled(function (callable $get, string $context) {
                             return (
                                 $context === 'create' ||
@@ -258,25 +282,7 @@ class OrderResource extends Resource
                             ->reactive(),
                     ])
                     ->columns(3),
-                Forms\Components\Select::make('payment_type_id')
-                    ->label('Тип оплати')
-                    ->options(PaymentType::pluck('name', 'id'))
-                    ->reactive()
-                    ->disabled(fn (callable $get) => self::isProcessing($get))
-                    ->required(),
 
-                Forms\Components\Select::make('cash_register_id')
-                    ->label('Каса')
-                    ->options(fn (callable $get) =>
-                    CashRegister::where('payment_type_id', $get('payment_type_id'))
-                        ->pluck('name', 'id')
-                    )
-                    ->required()
-                    ->disabled(fn (callable $get) => self::isProcessing($get))
-                    ->reactive()
-                    ->disabled(fn (callable $get) => blank($get('payment_type_id')))
-                    ->disabled(fn (callable $get) => self::isProcessing($get))
-                    ->hint('Каси підтягуються за типом оплати'),
 
                 FileUpload::make('payment_receipt')
                     ->label('Фото квитанції')

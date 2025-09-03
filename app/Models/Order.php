@@ -22,9 +22,6 @@ class Order extends Model
         'payment_status',
         'notes',
         'source',
-        'payment_type_id',
-        'cash_register_id',
-        'payment_receipt',
         'shipping_phone',
         'shipping_city',
         'shipping_carrier',
@@ -44,14 +41,20 @@ class Order extends Model
     ];
 
     const STATUS_NEW = 'new';
-    const STATUS_COMPLETED = 'completed';
+    const STATUS_PENDING_PAYMENT = 'pending_payment';
+    const STATUS_PARTIALLY_PAID = 'partially_paid';
+    const STATUS_PAID = 'paid';
     const STATUS_PROCESSING = 'processing';
+    const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
 
     const STATUSES = [
         self::STATUS_NEW => 'Нове',
+        self::STATUS_PENDING_PAYMENT => 'Очікує оплати',
+        self::STATUS_PARTIALLY_PAID => 'Частково оплачено',
+        self::STATUS_PAID => 'Оплачено',
+        self::STATUS_PROCESSING => 'Обробляється',
         self::STATUS_COMPLETED => 'Виконано',
-        self::STATUS_PROCESSING => 'Оплачено',
         self::STATUS_CANCELLED => 'Скасовано',
     ];
 
@@ -166,5 +169,28 @@ class Order extends Model
     public function getFormattedRemainingAmountAttribute()
     {
         return number_format($this->remaining_amount, 2) . ' грн';
+    }
+
+    /**
+     * Оновлює статус замовлення на основі платежів
+     */
+    public function updateStatusBasedOnPayments(): void
+    {
+        if ($this->remaining_amount <= 0) {
+            $this->update([
+                'status' => self::STATUS_PAID,
+                'payment_status' => self::PAYMENT_STATUS_PAID
+            ]);
+        } elseif ($this->paid_amount > 0) {
+            $this->update([
+                'status' => self::STATUS_PARTIALLY_PAID,
+                'payment_status' => self::PAYMENT_STATUS_PARTIAL_PAID
+            ]);
+        } else {
+            $this->update([
+                'status' => self::STATUS_PENDING_PAYMENT,
+                'payment_status' => self::PAYMENT_STATUS_UNPAID
+            ]);
+        }
     }
 }

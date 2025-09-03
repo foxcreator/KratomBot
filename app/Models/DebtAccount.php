@@ -112,12 +112,8 @@ class DebtAccount extends Model
                 $order->increment('paid_amount', $amount);
                 $order->decrement('remaining_amount', $amount);
                 
-                // Оновлюємо статус оплати замовлення
-                if ($order->remaining_amount <= 0) {
-                    $order->update(['payment_status' => 'paid']);
-                } else {
-                    $order->update(['payment_status' => 'partial_paid']);
-                }
+                // Автоматично оновлюємо статус замовлення
+                $order->updateStatusBasedOnPayments();
             }
         }
 

@@ -190,14 +190,7 @@ class OrderItemsRelationManager extends RelationManager
             'remaining_amount' => round($finalAmount - ($order->paid_amount ?? 0), 2),
         ]);
         
-        // Оновлюємо статус оплати
-        $remaining = $order->remaining_amount;
-        if ($remaining <= 0) {
-            $order->update(['payment_status' => 'paid']);
-        } elseif ($order->paid_amount > 0) {
-            $order->update(['payment_status' => 'partial_paid']);
-        } else {
-            $order->update(['payment_status' => 'unpaid']);
-        }
+        // Автоматично оновлюємо статус замовлення
+        $order->updateStatusBasedOnPayments();
     }
 }
