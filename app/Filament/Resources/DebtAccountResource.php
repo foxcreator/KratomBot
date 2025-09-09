@@ -29,6 +29,15 @@ class DebtAccountResource extends Resource
     protected static ?string $navigationGroup = 'Продажі';
     protected static ?int $navigationSort = 1;
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->where(function ($query) {
+                $query->where('remaining_debt', '>', 0)
+                      ->orWhere('balance', '!=', 0);
+            });
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -147,6 +156,18 @@ class DebtAccountResource extends Resource
                 Tables\Filters\SelectFilter::make('status')
                     ->label('Статус')
                     ->options(DebtAccount::STATUSES),
+                
+                Tables\Filters\TernaryFilter::make('has_debt')
+                    ->label('Показати тільки з заборгованістю')
+                    ->queries(
+                        true: fn (Builder $query) => $query->where(function ($q) {
+                            $q->where('remaining_debt', '>', 0)
+                              ->orWhere('balance', '!=', 0);
+                        }),
+                        false: fn (Builder $query) => $query->where('remaining_debt', '=', 0)
+                                                           ->where('balance', '=', 0),
+                    )
+                    ->default(true),
             ])
             ->actions([
                 Action::make('addPayment')
