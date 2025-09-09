@@ -30,13 +30,48 @@ class OrdersRelationManager extends RelationManager
                 TextColumn::make('total_amount')
                     ->label('Сума')
                     ->money('UAH', true),
+                TextColumn::make('paid_amount')
+                    ->label('Сплачено')
+                    ->money('UAH', true)
+                    ->color('success'),
+                TextColumn::make('remaining_amount')
+                    ->label('Залишок')
+                    ->money('UAH', true)
+                    ->color(fn ($record) => $record->remaining_amount > 0 ? 'danger' : 'success'),
+                TextColumn::make('paymentStatusName')
+                    ->label('Статус оплати')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Не оплачено' => 'danger',
+                        'Частково оплачено' => 'warning',
+                        'Оплачено' => 'success',
+                        'Переплачено' => 'info',
+                    }),
                 TextColumn::make('created_at')
                     ->label('Дата')
                     ->dateTime()
                     ->sortable(),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('payment_status')
+                    ->label('Статус оплати')
+                    ->options([
+                        'unpaid' => 'Не оплачено',
+                        'partial_paid' => 'Частково оплачено',
+                        'paid' => 'Оплачено',
+                        'overpaid' => 'Переплачено',
+                    ]),
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Статус замовлення')
+                    ->options([
+                        'new' => 'Нове',
+                        'pending_payment' => 'Очікує оплати',
+                        'partially_paid' => 'Частково оплачено',
+                        'paid' => 'Оплачено',
+                        'processing' => 'Обробляється',
+                        'completed' => 'Завершено',
+                        'cancelled' => 'Скасовано',
+                    ]),
             ])
             ->headerActions([])
             ->actions([
@@ -76,6 +111,27 @@ class OrdersRelationManager extends RelationManager
                                 ->money('UAH', true)
                                 ->color('success'),
                         ])->columns(4),
+
+                        Group::make([
+                            TextEntry::make('paid_amount')
+                                ->label('Сплачено')
+                                ->money('UAH', true)
+                                ->color('success'),
+                            TextEntry::make('remaining_amount')
+                                ->label('Залишок')
+                                ->money('UAH', true)
+                                ->color(fn ($record) => $record->remaining_amount > 0 ? 'danger' : 'success'),
+                            TextEntry::make('paymentStatusName')
+                                ->label('Статус оплати')
+                                ->badge()
+                                ->color(fn (string $state): string => match ($state) {
+                                    'Не оплачено' => 'danger',
+                                    'Частково оплачено' => 'warning',
+                                    'Оплачено' => 'success',
+                                    'Переплачено' => 'info',
+                                }),
+                        ])->columns(3)
+                        ->label('Фінансова інформація'),
 
                         Group::make([
                             TextEntry::make('paymentType.name')

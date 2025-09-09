@@ -13,6 +13,7 @@ use Closure;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
@@ -120,9 +121,22 @@ class OrderResource extends Resource
                     Select::make('member_id')
                         ->label('Клієнт')
                         ->required()
-                        ->relationship('member', 'full_name')
+                        ->options(function () {
+                            return Member::with('debtAccount')->get()->mapWithKeys(function ($member) {
+                                $balance = $member->debtAccount?->balance ?? 0;
+                                if ($balance > 0) {
+                                    $balanceText = " (+{$balance}₴)";
+                                } elseif ($balance < 0) {
+                                    $balanceText = " ({$balance}₴)";
+                                } else {
+                                    $balanceText = " (0₴)";
+                                }
+                                return [$member->id => $member->full_name . $balanceText];
+                            });
+                        })
                         ->searchable()
                         ->preload()
+                        ->reactive()
                         ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->createOptionForm([
                             TextInput::make('full_name')
@@ -159,7 +173,7 @@ class OrderResource extends Resource
                                 return;
                             }
 
-                            $member = \App\Models\Member::find($state);
+                            $member = \App\Models\Member::with('debtAccount')->find($state);
 
                             if ($member) {
                                 $set('shipping_name', $member->full_name ?? '');
@@ -170,6 +184,33 @@ class OrderResource extends Resource
                         }),
                     ])
                     ->columns(3),
+
+                Forms\Components\Placeholder::make('client_balance_info')
+                    ->label('Баланс клієнта')
+                    ->content(function (callable $get) {
+                        $memberId = $get('member_id');
+                        if (!$memberId) {
+                            return 'Оберіть клієнта для перегляду балансу';
+                        }
+                        
+                        $member = \App\Models\Member::with('debtAccount')->find($memberId);
+                        if (!$member || !$member->debtAccount) {
+                            return 'Баланс: 0.00₴';
+                        }
+                        
+                        $balance = $member->debtAccount->balance;
+                        if ($balance > 0) {
+                            return "Баланс: +{$balance}₴";
+                        } elseif ($balance < 0) {
+                            return "Баланс: {$balance}₴";
+                        } else {
+                            return "Баланс: 0.00₴";
+                        }
+                    })
+                    ->reactive()
+                    ->visible(fn (callable $get) => !empty($get('member_id')))
+                    ->columnSpanFull(),
+
                 Forms\Components\TextInput::make('source')
                     ->label('Джерело')
                     ->required()
@@ -271,7 +312,19 @@ class OrderResource extends Resource
                     ->columns(3),
 
 
-                // Квитанції тепер прикріплюються до платежів в розділі "Платежі"
+                Forms\Components\Section::make('Квітанція (тільки для замовлень з Telegram бота)')
+                    ->schema([
+                        Forms\Components\FileUpload::make('payment_receipt')
+                            ->label('Квітанція про оплату')
+                            ->image()
+                            ->directory('receipts')
+                            ->visibility('private')
+                            ->disabled()
+                            ->helperText('Це поле заповнюється автоматично при створенні замовлення через Telegram бот. Для ручних платежів використовуйте розділ "Платежі".')
+                            ->dehydrated(false),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
 
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('shipping_phone')
@@ -348,8 +401,13 @@ class OrderResource extends Resource
                     ->numeric()
                     ->suffix('%')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('payment_type')
-                    ->label('Тип оплати'),
+                Tables\Columns\ImageColumn::make('payment_receipt')
+                    ->label('Квітанція')
+                    ->circular()
+                    ->defaultImageUrl(url('/images/_blank.png'))
+                    ->url(fn ($record) => $record->payment_receipt ? asset('storage/' . $record->payment_receipt) : null)
+                    ->openUrlInNewTab()
+                    ->visible(fn ($record) => !empty($record->payment_receipt)),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Створено')
                     ->dateTime()

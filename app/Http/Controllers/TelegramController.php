@@ -1233,7 +1233,7 @@ class TelegramController extends Controller
                 try {
                     $file = Telegram::getFile(['file_id' => $fileId]);
                     $filePath = $file->get('file_path');
-                    $localPath = storage_path('app/public/payments/' . uniqid('receipt_') . '.jpg');
+                    $localPath = storage_path('app/public/receipts/' . uniqid('receipt_') . '.jpg');
                     $url = 'https://api.telegram.org/file/bot' . env('TELEGRAM_BOT_TOKEN') . '/' . $filePath;
                     $fileContent = @file_get_contents($url);
                     if ($fileContent === false) {
@@ -1243,7 +1243,7 @@ class TelegramController extends Controller
                         if ($result === false) {
                             \Log::error('handlePhoto: file_put_contents failed', ['localPath' => $localPath]);
                         } else {
-                            $state['payment_receipt'] = basename($localPath);
+                            $state['payment_receipt'] = 'receipts/' . basename($localPath);
                             $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE'];
                             $member->checkout_state = $state;
                             $member->save();

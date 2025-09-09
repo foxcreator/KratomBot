@@ -25,6 +25,10 @@ class MemberResource extends Resource
     protected static ?string $navigationGroup = 'Продажі';
     protected static ?int $navigationSort = 2;
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->with('debtAccount');
+    }
 
     public static function form(Form $form): Form
     {
@@ -59,6 +63,7 @@ class MemberResource extends Resource
                 TextInput::make('shipping_office')
                     ->label('Відділення Нової пошти')
                     ->nullable(),
+
             ]);
     }
 
@@ -82,6 +87,30 @@ class MemberResource extends Resource
                 Tables\Columns\TextColumn::make('username')
                     ->label('Username')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('debtAccount.balance')
+                    ->label('Баланс')
+                    ->formatStateUsing(function ($state) {
+                        $balance = $state ?? 0;
+                        if ($balance > 0) {
+                            return "+" . number_format($balance, 2, ',', ' ') . " ₴";
+                        } elseif ($balance < 0) {
+                            return number_format($balance, 2, ',', ' ') . " ₴";
+                        } else {
+                            return "0.00 ₴";
+                        }
+                    })
+                    ->sortable()
+                    ->color(fn ($state) => $state > 0 ? 'success' : ($state < 0 ? 'danger' : 'gray')),
+                Tables\Columns\TextColumn::make('total_orders_amount')
+                    ->label('Сума замовлень')
+                    ->money('UAH')
+                    ->sortable()
+                    ->color('info'),
+                Tables\Columns\TextColumn::make('total_orders_count')
+                    ->label('Кількість замовлень')
+                    ->numeric()
+                    ->sortable()
+                    ->color('gray'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Дата реєстрації')
                     ->dateTime('d.m.Y H:i')
@@ -106,6 +135,33 @@ class MemberResource extends Resource
                         }
                         if ($data['value'] === 'without_telegram') {
                             return $query->whereNull('telegram_id');
+                        }
+                        return $query;
+                    }),
+                SelectFilter::make('balance_status')
+                    ->label('Статус балансу')
+                    ->options([
+                        'positive' => 'Позитивний баланс',
+                        'negative' => 'Негативний баланс',
+                        'zero' => 'Нульовий баланс',
+                    ])
+                    ->query(function ($query, array $data) {
+                        $query->whereHas('debtAccount');
+                        
+                        if ($data['value'] === 'positive') {
+                            return $query->whereHas('debtAccount', function ($q) {
+                                $q->where('balance', '>', 0);
+                            });
+                        }
+                        if ($data['value'] === 'negative') {
+                            return $query->whereHas('debtAccount', function ($q) {
+                                $q->where('balance', '<', 0);
+                            });
+                        }
+                        if ($data['value'] === 'zero') {
+                            return $query->whereHas('debtAccount', function ($q) {
+                                $q->where('balance', '=', 0);
+                            });
                         }
                         return $query;
                     })

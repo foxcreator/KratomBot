@@ -33,10 +33,52 @@ class PaymentResource extends Resource
             ->schema([
                 Forms\Components\Select::make('debt_account_id')
                     ->label('Рахунок заборгованості')
-                    ->relationship('debtAccount', 'id')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->member->full_name . ' (ID: ' . $record->id . ')')
+                    ->options(function () {
+                        return \App\Models\DebtAccount::with('member')->get()->mapWithKeys(function ($debtAccount) {
+                            $balance = $debtAccount->balance ?? 0;
+                            $balanceText = $balance > 0 ? " (+{$balance}₴)" : ($balance < 0 ? " ({$balance}₴)" : "");
+                            return [$debtAccount->id => $debtAccount->member->full_name . ' (ID: ' . $debtAccount->id . ')' . $balanceText];
+                        });
+                    })
                     ->searchable()
-                    ->required(),
+                    ->required()
+                    ->reactive()
+                    ->afterStateUpdated(function (?int $state, callable $set) {
+                        if (!$state) {
+                            return;
+                        }
+                        
+                        $debtAccount = \App\Models\DebtAccount::with('member')->find($state);
+                        if ($debtAccount) {
+                            $set('debt_account_info', [
+                                'client' => $debtAccount->member->full_name,
+                                'balance' => $debtAccount->balance,
+                                'total_debt' => $debtAccount->total_debt,
+                                'paid_amount' => $debtAccount->paid_amount,
+                                'remaining_debt' => $debtAccount->remaining_debt,
+                            ]);
+                        }
+                    }),
+
+                Forms\Components\Placeholder::make('debt_account_info')
+                    ->label('Інформація про рахунок')
+                    ->content(function (callable $get) {
+                        $info = $get('debt_account_info');
+                        if (!$info) {
+                            return 'Оберіть рахунок заборгованості для перегляду інформації';
+                        }
+                        
+                        $balance = $info['balance'] ?? 0;
+                        $sign = $balance > 0 ? '+' : '';
+                        
+                        return "Клієнт: {$info['client']}\n" .
+                               "Баланс: {$sign}{$balance}₴\n" .
+                               "Загальний борг: {$info['total_debt']}₴\n" .
+                               "Сплачено: {$info['paid_amount']}₴\n" .
+                               "Залишок: {$info['remaining_debt']}₴";
+                    })
+                    ->visible(fn (callable $get) => !empty($get('debt_account_id')))
+                    ->columnSpanFull(),
 
                 Forms\Components\Select::make('order_id')
                     ->label('Замовлення')
