@@ -46,6 +46,16 @@ class Payment extends Model
                 $payment->receipt_number = 'PAY-' . date('Ymd') . '-' . str_pad(Payment::count() + 1, 4, '0', STR_PAD_LEFT);
             }
         });
+
+        static::created(function ($payment) {
+            // Оновлюємо заборгованість при створенні платежу
+            $payment->updateDebtAccount();
+        });
+
+        static::deleted(function ($payment) {
+            // Відновлюємо заборгованість при видаленні платежу
+            $payment->updateDebtAccount(true);
+        });
     }
 
     public function debtAccount(): BelongsTo
@@ -70,11 +80,115 @@ class Payment extends Model
 
     public function getFormattedAmountAttribute(): string
     {
-        return number_format($this->amount, 2) . ' грн';
+        return number_format((float) $this->amount, 2) . ' грн';
     }
 
     public function getFormattedPaymentDateAttribute(): string
     {
+        if (!$this->payment_date) {
+            return '';
+        }
+        
+        if (is_string($this->payment_date)) {
+            return \Carbon\Carbon::parse($this->payment_date)->format('d.m.Y');
+        }
+        
         return $this->payment_date->format('d.m.Y');
+    }
+
+    /**
+     * Оновлює заборгованість при створенні/видаленні платежу
+     */
+    public function updateDebtAccount(bool $isDeletion = false): void
+    {
+        if (!$this->debtAccount) {
+            return;
+        }
+
+        $amount = $isDeletion ? -$this->amount : $this->amount;
+
+        // Оновлюємо заборгованість
+        $this->debtAccount->increment('paid_amount', $amount);
+        $this->debtAccount->decrement('remaining_debt', $amount);
+
+        // Розраховуємо новий баланс
+        $newBalance = $this->debtAccount->paid_amount - $this->debtAccount->total_debt;
+        $this->debtAccount->update(['balance' => $newBalance]);
+
+        // Оновлюємо статус
+        if ($this->debtAccount->remaining_debt <= 0) {
+            $this->debtAccount->update(['status' => DebtAccount::STATUS_CLOSED]);
+        } else {
+            $this->debtAccount->update(['status' => DebtAccount::STATUS_ACTIVE]);
+        }
+
+        // Оновлюємо замовлення якщо вказано
+        if ($this->order_id) {
+            $order = $this->order;
+            if ($order) {
+                $order->increment('paid_amount', $amount);
+                $order->decrement('remaining_amount', $amount);
+
+                // Оновлюємо статус замовлення
+                if ($order->remaining_amount <= 0) {
+                    $order->update([
+                        'payment_status' => Order::PAYMENT_STATUS_PAID,
+                        'status' => Order::STATUS_PAID
+                    ]);
+                } else {
+                    $order->update([
+                        'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID,
+                        'status' => Order::STATUS_PARTIALLY_PAID
+                    ]);
+                }
+            }
+        } else {
+            // Якщо платіж без замовлення - розподіляємо по замовленнях клієнта
+            $this->distributePaymentToOrders($amount);
+        }
+    }
+
+    /**
+     * Розподіляє платіж по замовленнях клієнта
+     */
+    private function distributePaymentToOrders(float $amount): void
+    {
+        if (!$this->debtAccount) {
+            return;
+        }
+
+        // Отримуємо замовлення з залишком до сплати, відсортовані за датою створення
+        $orders = $this->debtAccount->orders()
+            ->where('remaining_amount', '>', 0)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $remainingAmount = $amount;
+
+        foreach ($orders as $order) {
+            if ($remainingAmount <= 0) {
+                break;
+            }
+
+            $paymentAmount = min($remainingAmount, $order->remaining_amount);
+            
+            $order->increment('paid_amount', $paymentAmount);
+            $order->decrement('remaining_amount', $paymentAmount);
+
+            // Оновлюємо статус замовлення
+            if ($order->remaining_amount <= 0) {
+                $order->update([
+                    'payment_status' => Order::PAYMENT_STATUS_PAID,
+                    'status' => Order::STATUS_PAID
+                ]);
+            } else {
+                $order->update([
+                    'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID,
+                    'status' => Order::STATUS_PARTIALLY_PAID
+                ]);
+            }
+
+            $remainingAmount -= $paymentAmount;
+        }
     }
 }

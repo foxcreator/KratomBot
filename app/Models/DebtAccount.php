@@ -79,17 +79,17 @@ class DebtAccount extends Model
 
     public function getFormattedTotalDebtAttribute(): string
     {
-        return number_format($this->total_debt, 2) . ' грн';
+        return number_format((float) $this->total_debt, 2) . ' грн';
     }
 
     public function getFormattedPaidAmountAttribute(): string
     {
-        return number_format($this->paid_amount, 2) . ' грн';
+        return number_format((float) $this->paid_amount, 2) . ' грн';
     }
 
     public function getFormattedRemainingDebtAttribute(): string
     {
-        return number_format($this->remaining_debt, 2) . ' грн';
+        return number_format((float) $this->remaining_debt, 2) . ' грн';
     }
 
     public function addPayment(float $amount, int $paymentTypeId, int $cashRegisterId, ?int $orderId = null, ?string $notes = null, string $paymentMethod = Payment::PAYMENT_METHOD_CASH): Payment
@@ -122,8 +122,18 @@ class DebtAccount extends Model
                 $order->increment('paid_amount', $amount);
                 $order->decrement('remaining_amount', $amount);
                 
-                // Автоматично оновлюємо статус замовлення
-                $order->updateStatusBasedOnPayments();
+                // Оновлюємо статус замовлення
+                if ($order->remaining_amount <= 0) {
+                    $order->update([
+                        'payment_status' => Order::PAYMENT_STATUS_PAID,
+                        'status' => Order::STATUS_PAID
+                    ]);
+                } else {
+                    $order->update([
+                        'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID,
+                        'status' => Order::STATUS_PARTIALLY_PAID
+                    ]);
+                }
             }
         }
 
@@ -152,11 +162,21 @@ class DebtAccount extends Model
     {
         $totalDebt = $this->orders()->sum('final_amount');
         $totalPaid = $this->payments()->sum('amount');
+        $remainingDebt = max(0, $totalDebt - $totalPaid);
+        $balance = $totalPaid - $totalDebt;
         
         $this->update([
             'total_debt' => $totalDebt,
             'paid_amount' => $totalPaid,
-            'remaining_debt' => $totalDebt - $totalPaid,
+            'remaining_debt' => $remainingDebt,
+            'balance' => $balance,
         ]);
+        
+        // Оновлюємо статус
+        if ($remainingDebt <= 0) {
+            $this->update(['status' => self::STATUS_CLOSED]);
+        } else {
+            $this->update(['status' => self::STATUS_ACTIVE]);
+        }
     }
 }

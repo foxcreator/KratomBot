@@ -94,10 +94,19 @@ class PaymentsRelationManager extends RelationManager
                         
                         // Оновлюємо статус оплати
                         if ($order->remaining_amount <= 0) {
-                            $order->update(['payment_status' => 'paid']);
+                            $order->update([
+                                'payment_status' => 'paid',
+                                'status' => 'paid'
+                            ]);
                         } else {
-                            $order->update(['payment_status' => 'partial_paid']);
+                            $order->update([
+                                'payment_status' => 'partial_paid',
+                                'status' => 'partially_paid'
+                            ]);
                         }
+
+                        // Оновлюємо debt account
+                        $this->updateDebtAccount($order, $data['amount']);
 
                         Notification::make()
                             ->success()
@@ -118,10 +127,19 @@ class PaymentsRelationManager extends RelationManager
                         
                         // Оновлюємо статус оплати
                         if ($order->paid_amount <= 0) {
-                            $order->update(['payment_status' => 'unpaid']);
+                            $order->update([
+                                'payment_status' => 'unpaid',
+                                'status' => 'pending_payment'
+                            ]);
                         } else {
-                            $order->update(['payment_status' => 'partial_paid']);
+                            $order->update([
+                                'payment_status' => 'partial_paid',
+                                'status' => 'partially_paid'
+                            ]);
                         }
+
+                        // Відновлюємо debt account
+                        $this->updateDebtAccount($order, -$record->amount);
 
                         Notification::make()
                             ->success()
@@ -134,5 +152,43 @@ class PaymentsRelationManager extends RelationManager
                 Tables\Actions\DeleteBulkAction::make(),
             ])
             ->defaultSort('payment_date', 'desc');
+    }
+
+    private function updateDebtAccount($order, $amount)
+    {
+        $member = $order->member;
+        $debtAccount = $member->debtAccount;
+        
+        if (!$debtAccount) {
+            // Створюємо debt account на основі замовлення
+            $debtAccount = \App\Models\DebtAccount::create([
+                'member_id' => $member->id,
+                'total_debt' => $order->total_amount,
+                'paid_amount' => 0,
+                'remaining_debt' => $order->total_amount,
+                'balance' => 0,
+                'status' => 'active',
+            ]);
+        }
+
+        // Оновлюємо суми
+        $debtAccount->increment('paid_amount', $amount);
+        $debtAccount->decrement('remaining_debt', $amount);
+        
+        // Розраховуємо новий баланс (може бути позитивним при переплаті)
+        $newBalance = $debtAccount->paid_amount - $debtAccount->total_debt;
+        $debtAccount->update(['balance' => $newBalance]);
+        
+        // Оновлюємо статус
+        if ($debtAccount->remaining_debt <= 0) {
+            $debtAccount->update(['status' => 'closed']);
+            
+            // Якщо є переплата - зачисляємо її на баланс клієнта
+            if ($newBalance > 0) {
+                $debtAccount->increment('balance', $newBalance);
+            }
+        } else {
+            $debtAccount->update(['status' => 'active']);
+        }
     }
 }

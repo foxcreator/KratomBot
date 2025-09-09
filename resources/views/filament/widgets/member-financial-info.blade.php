@@ -1,3 +1,4 @@
+@if($this->member)
 <x-filament-widgets::widget>
     <x-filament::section>
         <x-slot name="heading">
@@ -78,3 +79,4 @@
         </div>
     </x-filament::section>
 </x-filament-widgets::widget>
+@endif

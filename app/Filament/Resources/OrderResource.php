@@ -401,6 +401,17 @@ class OrderResource extends Resource
                     ->numeric()
                     ->suffix('%')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('notes')
+                    ->label('Нотатки')
+                    ->searchable()
+                    ->limit(50)
+                    ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
+                        $state = $column->getState();
+                        if (strlen($state) <= 50) {
+                            return null;
+                        }
+                        return $state;
+                    }),
                 Tables\Columns\ImageColumn::make('payment_receipt')
                     ->label('Квітанція')
                     ->circular()
