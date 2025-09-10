@@ -103,12 +103,28 @@ class PaymentResource extends Resource
                 Forms\Components\Select::make('payment_type_id')
                     ->label('Тип оплати')
                     ->relationship('paymentType', 'name')
-                    ->required(),
+                    ->required()
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        // Очищуємо вибір каси при зміні типу оплати
+                        $set('cash_register_id', null);
+                    }),
 
                 Forms\Components\Select::make('cash_register_id')
                     ->label('Каса')
-                    ->relationship('cashRegister', 'name')
-                    ->required(),
+                    ->options(function (callable $get) {
+                        $paymentTypeId = $get('payment_type_id');
+                        if (!$paymentTypeId) {
+                            return [];
+                        }
+                        
+                        return \App\Models\CashRegister::where('payment_type_id', $paymentTypeId)
+                            ->get()
+                            ->pluck('name', 'id');
+                    })
+                    ->required()
+                    ->searchable()
+                    ->placeholder('Оберіть касу для обраного типу оплати'),
 
                 Forms\Components\DatePicker::make('payment_date')
                     ->label('Дата платежу')
