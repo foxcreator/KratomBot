@@ -23,10 +23,11 @@ class OrderItemsRelationManager extends RelationManager
     protected function isProcessing(): bool
     {
         $order = $this->getOwnerRecord();
-        if ($order->status !== Order::STATUS_NEW) {
-            return true;
+        // Дозволяємо редагування для нових замовлень та замовлень, що очікують оплати
+        if (in_array($order->status, [Order::STATUS_NEW, Order::STATUS_PENDING_PAYMENT])) {
+            return false;
         }
-        return false;
+        return true;
     }
 
     public function form(Form $form): Form

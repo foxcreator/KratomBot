@@ -137,36 +137,32 @@ class OrderResource extends Resource
                         ->searchable()
                         ->preload()
                         ->reactive()
-                        ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->createOptionForm([
                             TextInput::make('full_name')
-                                ->label('Імʼя')
+                                ->label('Ім\'я')
                                 ->required(),
-
                             TextInput::make('phone')
                                 ->label('Телефон')
                                 ->tel()
                                 ->required()
                                 ->unique('members', 'phone'),
-
                             TextInput::make('email')
                                 ->label('Email')
                                 ->email()
                                 ->unique('members', 'email')
                                 ->nullable(),
-
-                            TextInput::make('address')
-                                ->label('Адреса')
+                            TextInput::make('username')
+                                ->label('Нікнейм')
                                 ->nullable(),
-
-                            TextInput::make('city')
-                                ->label('Місто')
-                                ->nullable(),
-
-                            TextInput::make('shipping_office')
-                                ->label('Відділення Нової пошти')
+                            TextInput::make('telegram_id')
+                                ->label('Telegram ID')
+                                ->numeric()
                                 ->nullable(),
                         ])
+                        ->createOptionUsing(function (array $data): int {
+                            return Member::create($data)->id;
+                        })
+                        ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->reactive()
                         ->afterStateUpdated(function (?int $state, callable $set) {
                             if (! $state) {
