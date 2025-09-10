@@ -12,6 +12,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Database\Eloquent\Builder;
 
 class MemberResource extends Resource
 {
@@ -70,6 +71,7 @@ class MemberResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->orderBy('created_at', 'desc'))
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')
                     ->label('Імʼя')

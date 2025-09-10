@@ -100,6 +100,7 @@ class DebtAccountResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->orderBy('updated_at', 'desc'))
             ->columns([
                 Tables\Columns\TextColumn::make('member.full_name')
                     ->label('Клієнт')
@@ -146,11 +147,10 @@ class DebtAccountResource extends Resource
                     ->dateTime()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Створено')
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Останнє оновлення')
                     ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')

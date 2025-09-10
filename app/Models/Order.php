@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class Order extends Model
@@ -95,6 +96,9 @@ class Order extends Model
                 );
                 
                 $order->update(['debt_account_id' => $debtAccount->id]);
+                
+                // Оновлюємо загальні суми в DebtAccount
+                $order->updateDebtAccountTotals();
             }
         });
 
@@ -106,7 +110,12 @@ class Order extends Model
                 $order->total_amount > 0
             ) {
                 $cashRegister = $order->cashRegister;
-                $cashRegister->increment('balance', $order->total_amount);
+                $cashRegister->increment('balance', (float) $order->total_amount);
+            }
+            
+            // Оновлюємо DebtAccount при зміні суми замовлення
+            if ($order->isDirty(['total_amount', 'final_amount', 'paid_amount', 'remaining_amount'])) {
+                $order->updateDebtAccountTotals();
             }
         });
     }
@@ -160,7 +169,7 @@ class Order extends Model
 
     public function getFormattedTotalAttribute()
     {
-        return number_format($this->total_amount, 2) . ' грн';
+        return number_format((float) $this->total_amount, 2) . ' грн';
     }
 
     public function getStatusNameAttribute()
@@ -175,17 +184,17 @@ class Order extends Model
 
     public function getFormattedFinalAmountAttribute()
     {
-        return number_format($this->final_amount ?? $this->total_amount, 2) . ' грн';
+        return number_format((float) ($this->final_amount ?? $this->total_amount), 2) . ' грн';
     }
 
     public function getFormattedPaidAmountAttribute()
     {
-        return number_format($this->paid_amount, 2) . ' грн';
+        return number_format((float) $this->paid_amount, 2) . ' грн';
     }
 
     public function getFormattedRemainingAmountAttribute()
     {
-        return number_format($this->remaining_amount, 2) . ' грн';
+        return number_format((float) $this->remaining_amount, 2) . ' грн';
     }
 
     /**
@@ -220,7 +229,8 @@ class Order extends Model
     public function updateDebtAccountTotals(): void
     {
         if ($this->debtAccount) {
-            $totalDebt = $this->debtAccount->orders()->sum('final_amount');
+            // Використовуємо final_amount якщо є, інакше total_amount
+            $totalDebt = $this->debtAccount->orders()->sum(DB::raw('COALESCE(final_amount, total_amount)'));
             $totalPaid = $this->debtAccount->payments()->sum('amount');
             
             $this->debtAccount->update([

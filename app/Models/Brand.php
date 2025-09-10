@@ -16,6 +16,11 @@ class Brand extends Model
         'chat_text'
     ];
 
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
     public function products()
     {
         return $this->hasMany(Product::class);

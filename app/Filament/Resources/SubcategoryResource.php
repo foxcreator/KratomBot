@@ -48,6 +48,7 @@ class SubcategoryResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->orderBy('created_at', 'desc'))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Назва')

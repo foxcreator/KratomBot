@@ -28,6 +28,8 @@ class DebtAccount extends Model
         'remaining_debt' => 'decimal:2',
         'balance' => 'decimal:2',
         'last_payment_date' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     const STATUS_ACTIVE = 'active';

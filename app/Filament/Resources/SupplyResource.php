@@ -47,7 +47,9 @@ class SupplyResource extends Resource
 
     public static function table(Tables\Table $table): Tables\Table
     {
-        return $table->columns([
+        return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->orderBy('created_at', 'desc'))
+            ->columns([
             Tables\Columns\TextColumn::make('number')->label('Номер'),
             Tables\Columns\TextColumn::make('date')->label('Дата')->date(),
             Tables\Columns\TextColumn::make('supplier_name')->label('Постачальник'),
