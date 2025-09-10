@@ -49,7 +49,9 @@ class Payment extends Model
 
         static::created(function ($payment) {
             // Оновлюємо заборгованість при створенні платежу
-            $payment->updateDebtAccount();
+            if ($payment->debt_account_id) {
+                $payment->updateDebtAccount();
+            }
         });
 
         static::deleted(function ($payment) {
@@ -93,7 +95,11 @@ class Payment extends Model
             return \Carbon\Carbon::parse($this->payment_date)->format('d.m.Y');
         }
         
-        return $this->payment_date->format('d.m.Y');
+        if ($this->payment_date instanceof \Carbon\Carbon) {
+            return $this->payment_date->format('d.m.Y');
+        }
+        
+        return '';
     }
 
     /**
@@ -101,7 +107,7 @@ class Payment extends Model
      */
     public function updateDebtAccount(bool $isDeletion = false): void
     {
-        if (!$this->debtAccount) {
+        if (!$this->debt_account_id || !$this->debtAccount) {
             return;
         }
 

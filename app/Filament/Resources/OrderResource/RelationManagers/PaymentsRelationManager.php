@@ -49,6 +49,10 @@ class PaymentsRelationManager extends RelationManager
             Forms\Components\Textarea::make('notes')
                 ->label('Нотатки')
                 ->columnSpanFull(),
+
+            // Приховані поля
+            Forms\Components\Hidden::make('debt_account_id'),
+            Forms\Components\Hidden::make('order_id'),
         ]);
     }
 
@@ -85,6 +89,12 @@ class PaymentsRelationManager extends RelationManager
             ->headerActions([
                 Tables\Actions\CreateAction::make()
                     ->label('Додати платіж')
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $order = $this->getOwnerRecord();
+                        $data['debt_account_id'] = $order->debt_account_id;
+                        $data['order_id'] = $order->id;
+                        return $data;
+                    })
                     ->after(function ($record, $data) {
                         $order = $this->getOwnerRecord();
                         
