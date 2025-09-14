@@ -141,10 +141,15 @@ class Payment extends Model
                         'payment_status' => Order::PAYMENT_STATUS_PAID,
                         'status' => Order::STATUS_PAID
                     ]);
-                } else {
+                } elseif ($order->paid_amount > 0) {
                     $order->update([
                         'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID,
                         'status' => Order::STATUS_PARTIALLY_PAID
+                    ]);
+                } else {
+                    $order->update([
+                        'payment_status' => Order::PAYMENT_STATUS_UNPAID,
+                        'status' => Order::STATUS_PENDING_PAYMENT
                     ]);
                 }
             }
@@ -187,10 +192,15 @@ class Payment extends Model
                     'payment_status' => Order::PAYMENT_STATUS_PAID,
                     'status' => Order::STATUS_PAID
                 ]);
-            } else {
+            } elseif ($order->paid_amount > 0) {
                 $order->update([
                     'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID,
                     'status' => Order::STATUS_PARTIALLY_PAID
+                ]);
+            } else {
+                $order->update([
+                    'payment_status' => Order::PAYMENT_STATUS_UNPAID,
+                    'status' => Order::STATUS_PENDING_PAYMENT
                 ]);
             }
 

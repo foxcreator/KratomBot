@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('settings', function (Blueprint $table) {
-            $table->boolean('locked')->default(false)->after('payload');
+            $table->boolean('locked')->default(false)->after('value');
         });
     }
 

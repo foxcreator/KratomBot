@@ -12,8 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('name')->default('manager')->change();
-            $table->string('phone')->default('0');
+            if (Schema::hasColumn('users', 'name')) {
+                $table->string('name')->default('manager')->change();
+            } else {
+                $table->string('name')->default('manager');
+            }
+            if (!Schema::hasColumn('users', 'phone')) {
+                $table->string('phone')->default('0');
+            }
         });
     }
 

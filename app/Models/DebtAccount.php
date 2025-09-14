@@ -117,27 +117,7 @@ class DebtAccount extends Model
             $this->decrement('balance', $amount);
         }
 
-        // Оновлюємо замовлення якщо вказано
-        if ($orderId) {
-            $order = Order::find($orderId);
-            if ($order) {
-                $order->increment('paid_amount', $amount);
-                $order->decrement('remaining_amount', $amount);
-                
-                // Оновлюємо статус замовлення
-                if ($order->remaining_amount <= 0) {
-                    $order->update([
-                        'payment_status' => Order::PAYMENT_STATUS_PAID,
-                        'status' => Order::STATUS_PAID
-                    ]);
-                } else {
-                    $order->update([
-                        'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID,
-                        'status' => Order::STATUS_PARTIALLY_PAID
-                    ]);
-                }
-            }
-        }
+        // Оновлення замовлення відбувається автоматично через Payment model events
 
         return $payment;
     }

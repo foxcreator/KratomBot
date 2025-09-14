@@ -29,25 +29,6 @@ class Member extends Model
         'ui_state' => 'array',
     ];
 
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::created(function ($member) {
-            // Автоматично створюємо рахунок заборгованості для нового клієнта
-            if (!$member->debtAccount) {
-                \App\Models\DebtAccount::create([
-                    'member_id' => $member->id,
-                    'total_debt' => 0,
-                    'paid_amount' => 0,
-                    'remaining_debt' => 0,
-                    'balance' => 0,
-                    'status' => 'active',
-                ]);
-            }
-        });
-    }
-
     public function promocode()
     {
         return $this->hasOne(Promocode::class);
