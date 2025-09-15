@@ -190,6 +190,18 @@ class PaymentResource extends Resource
                     ->label('Номер квитанції')
                     ->searchable(),
 
+                Tables\Columns\TextColumn::make('notes')
+                    ->label('Коментар')
+                    ->limit(50)
+                    ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
+                        $state = $column->getState();
+                        if (strlen($state) <= 50) {
+                            return null;
+                        }
+                        return $state;
+                    })
+                    ->searchable(),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Створено')
                     ->dateTime()

@@ -381,14 +381,15 @@ class OrderResource extends Resource
                     ->money('UAH')
                     ->sortable()
                     ->color(fn ($record) => $record->remaining_amount > 0 ? 'danger' : 'success'),
-                Tables\Columns\TextColumn::make('paymentStatusName')
+                Tables\Columns\TextColumn::make('payment_status')
                     ->label('Статус оплати')
                     ->badge()
+                    ->formatStateUsing(fn ($state) => \App\Models\Order::PAYMENT_STATUSES[$state] ?? 'Невідомо')
                     ->color(fn (string $state): string => match ($state) {
-                        'Не оплачено' => 'danger',
-                        'Частково оплачено' => 'warning',
-                        'Оплачено' => 'success',
-                        'Переплачено' => 'info',
+                        'unpaid' => 'danger',
+                        'partial_paid' => 'warning',
+                        'paid' => 'success',
+                        'overpaid' => 'info',
                     }),
                 Tables\Columns\TextColumn::make('shipping_phone')
                     ->label('Телефон отримувача')

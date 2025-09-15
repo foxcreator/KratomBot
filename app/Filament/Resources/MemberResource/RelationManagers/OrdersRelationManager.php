@@ -30,17 +30,18 @@ class OrdersRelationManager extends RelationManager
                     ->weight('bold')
                     ->color('primary'),
                     
-                TextColumn::make('statusName')
+                TextColumn::make('status')
                     ->label('Статус')
                     ->badge()
+                    ->formatStateUsing(fn ($state) => \App\Models\Order::STATUSES[$state] ?? 'Невідомо')
                     ->color(fn (string $state): string => match ($state) {
-                        'Нове' => 'warning',
-                        'Очікує оплати' => 'danger',
-                        'Частково оплачено' => 'warning',
-                        'Оплачено' => 'success',
-                        'Обробляється' => 'info',
-                        'Виконано' => 'success',
-                        'Скасовано' => 'danger',
+                        'new' => 'warning',
+                        'pending_payment' => 'danger',
+                        'partially_paid' => 'warning',
+                        'paid' => 'success',
+                        'processing' => 'info',
+                        'completed' => 'success',
+                        'cancelled' => 'danger',
                     })
                     ->sortable(),
                     
@@ -63,14 +64,15 @@ class OrdersRelationManager extends RelationManager
                     ->color(fn ($record) => $record->remaining_amount > 0 ? 'danger' : 'success')
                     ->sortable(),
                     
-                TextColumn::make('paymentStatusName')
+                TextColumn::make('payment_status')
                     ->label('Оплата')
                     ->badge()
+                    ->formatStateUsing(fn ($state) => \App\Models\Order::PAYMENT_STATUSES[$state] ?? 'Невідомо')
                     ->color(fn (string $state): string => match ($state) {
-                        'Не оплачено' => 'danger',
-                        'Частково оплачено' => 'warning',
-                        'Оплачено' => 'success',
-                        'Переплачено' => 'info',
+                        'unpaid' => 'danger',
+                        'partial_paid' => 'warning',
+                        'paid' => 'success',
+                        'overpaid' => 'info',
                     }),
                     
                 TextColumn::make('orderItems')
@@ -128,17 +130,18 @@ class OrdersRelationManager extends RelationManager
                                 ->color('primary')
                                 ->weight('bold')
                                 ->size('lg'),
-                            TextEntry::make('statusName')
+                            TextEntry::make('status')
                                 ->label('Статус')
                                 ->badge()
+                                ->formatStateUsing(fn ($state) => \App\Models\Order::STATUSES[$state] ?? 'Невідомо')
                                 ->color(fn (string $state): string => match ($state) {
-                                    'Нове' => 'warning',
-                                    'Очікує оплати' => 'danger',
-                                    'Частково оплачено' => 'warning',
-                                    'Оплачено' => 'success',
-                                    'Обробляється' => 'info',
-                                    'Виконано' => 'success',
-                                    'Скасовано' => 'danger',
+                                    'new' => 'warning',
+                                    'pending_payment' => 'danger',
+                                    'partially_paid' => 'warning',
+                                    'paid' => 'success',
+                                    'processing' => 'info',
+                                    'completed' => 'success',
+                                    'cancelled' => 'danger',
                                 }),
                             TextEntry::make('created_at')
                                 ->label('Дата створення')
@@ -199,14 +202,15 @@ class OrdersRelationManager extends RelationManager
                                 ->money('UAH')
                                 ->color(fn ($record) => $record->remaining_amount > 0 ? 'danger' : 'success')
                                 ->weight('bold'),
-                            TextEntry::make('paymentStatusName')
+                            TextEntry::make('payment_status')
                                 ->label('Статус оплати')
                                 ->badge()
+                                ->formatStateUsing(fn ($state) => \App\Models\Order::PAYMENT_STATUSES[$state] ?? 'Невідомо')
                                 ->color(fn (string $state): string => match ($state) {
-                                    'Не оплачено' => 'danger',
-                                    'Частково оплачено' => 'warning',
-                                    'Оплачено' => 'success',
-                                    'Переплачено' => 'info',
+                                    'unpaid' => 'danger',
+                                    'partial_paid' => 'warning',
+                                    'paid' => 'success',
+                                    'overpaid' => 'info',
                                 }),
                         ])
                         ->columns(3)

@@ -67,14 +67,18 @@ class OrdersRelationManager extends RelationManager
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('statusName')
+                Tables\Columns\TextColumn::make('status')
                     ->label('Статус')
                     ->badge()
+                    ->formatStateUsing(fn ($state) => \App\Models\Order::STATUSES[$state] ?? 'Невідомо')
                     ->color(fn (string $state): string => match ($state) {
-                        'Нове' => 'warning',
-                        'Оплачено' => 'success',
-                        'Виконано' => 'info',
-                        'Скасовано' => 'danger',
+                        'new' => 'warning',
+                        'pending_payment' => 'danger',
+                        'partially_paid' => 'warning',
+                        'paid' => 'success',
+                        'processing' => 'info',
+                        'completed' => 'success',
+                        'cancelled' => 'danger',
                     }),
 
                 Tables\Columns\TextColumn::make('total_amount')
@@ -98,14 +102,15 @@ class OrdersRelationManager extends RelationManager
                     ->sortable()
                     ->color(fn ($record) => $record->remaining_amount > 0 ? 'danger' : 'success'),
 
-                Tables\Columns\TextColumn::make('paymentStatusName')
+                Tables\Columns\TextColumn::make('payment_status')
                     ->label('Статус оплати')
                     ->badge()
+                    ->formatStateUsing(fn ($state) => \App\Models\Order::PAYMENT_STATUSES[$state] ?? 'Невідомо')
                     ->color(fn (string $state): string => match ($state) {
-                        'Не оплачено' => 'danger',
-                        'Частково оплачено' => 'warning',
-                        'Оплачено' => 'success',
-                        'Переплачено' => 'info',
+                        'unpaid' => 'danger',
+                        'partial_paid' => 'warning',
+                        'paid' => 'success',
+                        'overpaid' => 'info',
                     }),
 
                 Tables\Columns\TextColumn::make('created_at')
