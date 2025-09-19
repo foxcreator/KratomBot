@@ -37,8 +37,7 @@ class TelegramController extends Controller
     public function __construct()
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
-        $this->settings = Setting::all()->pluck('value', 'key')->toArray();
-        $this->new_settings = $settings = app(TelegramSetting::class);
+        $this->settings = app(TelegramSetting::class);
     }
 
     public function setWebhook()
