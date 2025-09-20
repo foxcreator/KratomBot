@@ -108,7 +108,9 @@ class TelegramController extends Controller
 
     private function sendMainMenu($chatId, $text = null)
     {
-        Telegram::sendMessage([
+        $member = Member::where('telegram_id', $chatId)->first();
+        
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => $text ?? '☝',
             'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
@@ -205,7 +207,7 @@ class TelegramController extends Controller
         if (!$hasOrders) {
             $keyboard[] = [['text' => '🚚 Накладений платіж', 'callback_data' => 'pay_type_cod']];
         }
-        Telegram::sendMessage([
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => "Оберіть спосіб оплати:\n\n<b>Передплата</b> — оплата на картку, після чого ви надсилаєте фото квитанції.\n<b>Накладений платіж</b> — оплата при отриманні (доступно лише для першого замовлення).",
             'parse_mode' => 'HTML',
@@ -448,7 +450,7 @@ class TelegramController extends Controller
                 $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_CITY'];
                 $member->checkout_state = $state;
                 $member->save();
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => "Введіть місто для відправки:"
                 ]);
@@ -458,7 +460,7 @@ class TelegramController extends Controller
                 $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_CARRIER'];
                 $member->checkout_state = $state;
                 $member->save();
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => "Оберіть поштового оператора:",
                     'reply_markup' => json_encode(['keyboard' => [['Нова Пошта']], 'resize_keyboard' => true])
@@ -469,7 +471,7 @@ class TelegramController extends Controller
                 $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE'];
                 $member->checkout_state = $state;
                 $member->save();
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => "Введіть номер відділення:",
                     'reply_markup' => json_encode(['remove_keyboard' => true])
@@ -480,7 +482,7 @@ class TelegramController extends Controller
                 $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_NAME'];
                 $member->checkout_state = $state;
                 $member->save();
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => "Введіть ПІБ отримувача:"
                 ]);
@@ -516,7 +518,7 @@ class TelegramController extends Controller
                     ];
                     $fieldsList = array_map(fn($f) => $fieldNames[$f], $missing);
                     $fieldsText = implode(', ', $fieldsList);
-                    Telegram::sendMessage([
+                    $this->sendMessageWithCleanup($chatId, $member, [
                         'chat_id' => $chatId,
                         'text' => "Будь ласка, введіть: $fieldsText"
                     ]);
@@ -536,7 +538,7 @@ class TelegramController extends Controller
                 break;
             case '🎁 Отримай знижку':
                 $discountInfo = $this->settings->discount_info ?? 'Щоб отримати знижку, підпишіться на наш Telegram-канал!';
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => $discountInfo,
                     'parse_mode' => 'HTML',
@@ -605,7 +607,7 @@ class TelegramController extends Controller
                 break;
             case '📘 Як замовити':
                 $messageText = $this->settings->how_ordering ?? 'Інформація відсутня.';
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => $messageText,
                     'parse_mode' => 'HTML',
@@ -614,7 +616,7 @@ class TelegramController extends Controller
                 break;
             case '💳 Оплата':
                 $messageText = $this->settings->payments ?? 'Інформація відсутня.';
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => $messageText,
                     'parse_mode' => 'HTML',
@@ -623,7 +625,7 @@ class TelegramController extends Controller
                 break;
             case '⭐️ Відгуки':
                 $messageText = $this->settings->reviews ?? 'Відгуки відсутні.';
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => $messageText,
                     'parse_mode' => 'HTML',
@@ -661,7 +663,7 @@ class TelegramController extends Controller
                 if (!$brand) {
                     $brand = Brand::where('name', 'Moringa')->first();
                 }
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => $brand->description,
                     'reply_markup' => json_encode(['keyboard' => $this->sendBrandMenu($chatId), 'resize_keyboard' => true])
@@ -676,7 +678,7 @@ class TelegramController extends Controller
                     $brand = Brand::where('name', 'Moringa')->first();
                 }
 
-                Telegram::sendMessage([
+                $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
                     'text' => $brand->price,
                     'parse_mode' => 'HTML',
@@ -736,13 +738,15 @@ class TelegramController extends Controller
 
     private function sendCatalogMenu($chatId)
     {
+        $member = Member::where('telegram_id', $chatId)->first();
         $brands = Brand::all();
         $keyboard = [];
         foreach ($brands as $brand) {
             $keyboard[] = [$brand->name];
         }
         $keyboard[] = ['⬅️ Назад', $this->getCartButton($chatId)[0]];
-        Telegram::sendMessage([
+        
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => 'Оберіть категорію товарів:',
             'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
@@ -758,7 +762,7 @@ class TelegramController extends Controller
             $this->setCurrentState($member, ['type' => 'brand', 'id' => $brandId]);
         }
 
-        Telegram::sendMessage([
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => $brand->chat_text ?? '.',
             'reply_markup' => json_encode(['keyboard' => $this->sendBrandMenu($chatId), 'resize_keyboard' => true])
@@ -777,6 +781,7 @@ class TelegramController extends Controller
 
     private function sendBrandProductsMenu($chatId, $brandId)
     {
+        $member = Member::where('telegram_id', $chatId)->first();
         $subcategories = Subcategory::where('brand_id', $brandId)->get();
         if ($subcategories->count() > 0) {
             $keyboard = [];
@@ -784,13 +789,14 @@ class TelegramController extends Controller
                 $keyboard[] = [$subcategory->name];
             }
             $keyboard[] = ['⬅️ Назад', $this->getCartButton($chatId)[0]];
-            Telegram::sendMessage([
+            
+            $this->sendMessageWithCleanup($chatId, $member, [
                 'chat_id' => $chatId,
                 'text' => 'Оберіть форму продукту і замовляйте зручно.',
                 'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
             ]);
         } else {
-            Telegram::sendMessage([
+            $this->sendMessageWithCleanup($chatId, $member, [
                 'chat_id' => $chatId,
                 'text' => 'У цієї категорії ще немає підкатегорій.'
             ]);
@@ -1118,7 +1124,7 @@ class TelegramController extends Controller
         } else {
             $totalText = "\n💸 <b>Сума до оплати:</b> <b>" . number_format($total, 2) . " грн</b>\n";
         }
-        Telegram::sendMessage([
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => "<b>Оплата замовлення</b>\n\n$totalText$requisites\n\nПісля оплати надішліть фото квитанції у цей чат.",
             'parse_mode' => 'HTML',
@@ -1133,7 +1139,7 @@ class TelegramController extends Controller
         $state['payment_type'] = 'cod';
         $member->checkout_state = $state;
         $member->save();
-        Telegram::sendMessage([
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => "Введіть номер телефону для відправки (у форматі +380...)"
         ]);
@@ -1246,7 +1252,7 @@ class TelegramController extends Controller
                             $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE'];
                             $member->checkout_state = $state;
                             $member->save();
-                            Telegram::sendMessage([
+                            $this->sendMessageWithCleanup($chatId, $member, [
                                 'chat_id' => $chatId,
                                 'text' => "Дякуємо! Тепер введіть номер телефону для відправки (у форматі +380...):"
                             ]);
@@ -1282,7 +1288,7 @@ class TelegramController extends Controller
         if (!$hasOrders) {
             $keyboard[] = [['text' => '🚚 Накладений платіж', 'callback_data' => 'pay_type_cod']];
         }
-        Telegram::sendMessage([
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => "Оберіть спосіб оплати:\n\n<b>Передплата</b> — оплата на картку, після чого ви надсилаєте фото квитанції.\n<b>Накладений платіж</b> — оплата при отриманні (доступно лише для першого замовлення).",
             'parse_mode' => 'HTML',
@@ -1323,7 +1329,7 @@ class TelegramController extends Controller
         if (!$hasOrders) {
             $keyboard[] = [['text' => '🚚 Накладений платіж', 'callback_data' => 'pay_type_cod']];
         }
-        Telegram::sendMessage([
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => "Оберіть спосіб оплати:\n\n<b>Передплата</b> — оплата на картку, після чого ви надсилаєте фото квитанції.\n<b>Накладений платіж</b> — оплата при отриманні (доступно лише для першого замовлення).",
             'parse_mode' => 'HTML',
@@ -1407,5 +1413,86 @@ class TelegramController extends Controller
         return preg_replace_callback('/`([^`]+)`/', function ($matches) {
             return '<code>' . htmlspecialchars($matches[1]) . '</code>';
         }, $text);
+    }
+
+    /**
+     * Видаляє попередні повідомлення для очищення чату
+     */
+    private function deletePreviousMessages($chatId, $member)
+    {
+        if (!$member) {
+            return;
+        }
+
+        $uiState = $member->ui_state ?? [];
+        if (is_string($uiState)) {
+            $uiState = json_decode($uiState, true);
+        }
+
+        $messageIds = $uiState['message_ids'] ?? [];
+        
+        foreach ($messageIds as $messageId) {
+            try {
+                Telegram::deleteMessage([
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId
+                ]);
+            } catch (\Exception $e) {
+                // Логуємо помилку, але не зупиняємо виконання
+                Log::warning('Не вдалося видалити повідомлення', [
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        // Очищаємо список повідомлень
+        $uiState['message_ids'] = [];
+        $member->ui_state = $uiState;
+        $member->save();
+    }
+
+    /**
+     * Зберігає ID нового повідомлення
+     */
+    private function saveMessageId($member, $messageId)
+    {
+        if (!$member || !$messageId) {
+            return;
+        }
+
+        $uiState = $member->ui_state ?? [];
+        if (is_string($uiState)) {
+            $uiState = json_decode($uiState, true);
+        }
+
+        if (!isset($uiState['message_ids'])) {
+            $uiState['message_ids'] = [];
+        }
+
+        $uiState['message_ids'][] = $messageId;
+        $uiState['last_message_id'] = $messageId;
+        $member->ui_state = $uiState;
+        $member->save();
+    }
+
+    /**
+     * Відправляє повідомлення з очищенням попередніх
+     */
+    private function sendMessageWithCleanup($chatId, $member, $params)
+    {
+        // Видаляємо попередні повідомлення
+        $this->deletePreviousMessages($chatId, $member);
+
+        // Відправляємо нове повідомлення
+        $response = Telegram::sendMessage($params);
+
+        // Зберігаємо ID нового повідомлення
+        if (isset($response['message_id'])) {
+            $this->saveMessageId($member, $response['message_id']);
+        }
+
+        return $response;
     }
 }
