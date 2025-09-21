@@ -34,6 +34,8 @@ class TelegramController extends Controller
         'AWAIT_SHIPPING_NAME' => 'await_shipping_name',
     ];
 
+    const PRODUCTS_PER_PAGE = 8;
+
     public function __construct()
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
@@ -60,12 +62,18 @@ class TelegramController extends Controller
                 $chatId = $update->getMessage()->getChat()->getId();
                 $username = $update->getMessage()->getFrom()->getUsername();
                 $text = $update->getMessage()->getText();
+                $messageId = $update->getMessage()->getMessageId();
 
                 $member = \App\Models\Member::query()->firstOrNew(['telegram_id' => $chatId]);
 
                 $member->username = $username;
                 if (is_null($member->full_name)) {
                     $member->full_name = $username;
+                }
+
+                // Зберігаємо ID повідомлення користувача для можливого видалення
+                if ($messageId) {
+                    $this->saveUserMessageId($member, $messageId);
                 }
 
                 $member->save();
@@ -271,10 +279,10 @@ class TelegramController extends Controller
     {
         $member = Member::where('telegram_id', $chatId)->first();
         $product = Product::find($productId);
-        if (!$member || !$product) {
+        if (!$member || !$product || !$product->is_visible) {
             Telegram::answerCallbackQuery([
                 'callback_query_id' => $this->getCallbackQueryId(),
-                'text' => 'Помилка додавання товару'
+                'text' => 'Товар недоступний'
             ]);
             return;
         }
@@ -550,7 +558,7 @@ class TelegramController extends Controller
                     $this->pushHistory($member);
                     $this->setCurrentState($member, ['type' => 'top']);
                 }
-                $products = Product::where('is_top_sales', true)->get();
+                $products = Product::where('is_top_sales', true)->where('is_visible', true)->get();
                 if ($products->count() > 0) {
                     foreach ($products as $index => $product) {
                         $caption = ($index+1) . ". <b>{$product->name}</b>\n";
@@ -712,6 +720,7 @@ class TelegramController extends Controller
                             'member_id' => $member->id,
                             'product_id' => $productId,
                             'status' => 'new',
+                            'source' => 'bot',
                         ]);
                     }
                     Telegram::sendMessage([
@@ -805,58 +814,177 @@ class TelegramController extends Controller
 
     private function sendSubcategoryProductsMenu($chatId, $subcategoryId)
     {
-        $products = Product::where('subcategory_id', $subcategoryId)->get();
-        $keyboard = [
-            ['⬅️ Назад', $this->getCartButton($chatId)[0]],
-        ];
-        if ($products->count() > 0) {
-            foreach ($products as $product) {
-                $caption = "<b>{$product->name}</b>\n\n";
-                $caption .= "{$product->description}\n\n";
-                if ($product->options && $product->options->count() > 0) {
-                    $inlineKeyboard = [];
-                    foreach ($product->options as $option) {
-                        $inlineKeyboard[] = [
-                            ['text' => $option->name . ' — ' . $option->price . ' грн', 'callback_data' => 'choose_option_' . $option->id]
-                        ];
-                    }
-                } else {
-                    $caption .= "💰 {$product->price} грн";
-                    $inlineKeyboard = [
-                        [
-                            ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_buy_product_' . $product->id],
-                            ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
-                        ]
-                    ];
-                }
-                if (!empty($product->image_url)) {
-                    $localPath = public_path('/storage/'.$product->image_url);
-                    if (file_exists($localPath)) {
-                        $photo = InputFile::create($localPath, basename($localPath));
-                    } else {
-                        $photo = InputFile::create($product->image_url, basename($product->image_url));
-                    }
-                    Telegram::sendPhoto([
-                        'chat_id' => $chatId,
-                        'photo' => $photo,
-                        'caption' => $caption,
-                        'parse_mode' => 'HTML',
-                        'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
-                    ]);
-                } else {
-                    Telegram::sendMessage([
-                        'chat_id' => $chatId,
-                        'text' => $caption,
-                        'parse_mode' => 'HTML',
-                        'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
-                    ]);
-                }
-            }
-        } else {
+        $this->sendSubcategoryProductsPaginated($chatId, $subcategoryId, 1);
+    }
+
+    private function sendSubcategoryProductsPaginated($chatId, $subcategoryId, $page = 1)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $subcategory = Subcategory::find($subcategoryId);
+        
+        if (!$subcategory) {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'Підкатегорія не знайдена.',
+                'reply_markup' => json_encode(['keyboard' => [['⬅️ Назад', $this->getCartButton($chatId)[0]]], 'resize_keyboard' => true])
+            ]);
+            return;
+        }
+
+        $products = Product::where('subcategory_id', $subcategoryId)->where('is_visible', true)->get();
+        $totalProducts = $products->count();
+        
+        if ($totalProducts === 0) {
             Telegram::sendMessage([
                 'chat_id' => $chatId,
                 'text' => 'У цій підкатегорії ще немає товарів.',
-                'reply_markup' => json_encode(['keyboard' => $keyboard, 'resize_keyboard' => true])
+                'reply_markup' => json_encode(['keyboard' => [['⬅️ Назад', $this->getCartButton($chatId)[0]]], 'resize_keyboard' => true])
+            ]);
+            return;
+        }
+
+        $totalPages = ceil($totalProducts / self::PRODUCTS_PER_PAGE);
+        $page = max(1, min($page, $totalPages));
+        
+        $offset = ($page - 1) * self::PRODUCTS_PER_PAGE;
+        $productsForPage = $products->slice($offset, self::PRODUCTS_PER_PAGE);
+
+        // Оновлюємо стан користувача
+        if ($member) {
+            $this->setCurrentState($member, [
+                'type' => 'subcategory_products',
+                'subcategory_id' => $subcategoryId,
+                'page' => $page
+            ]);
+            
+            $uiState = $member->ui_state ?? [];
+            $uiState['pagination'] = [
+                'subcategory_id' => $subcategoryId,
+                'current_page' => $page,
+                'total_pages' => $totalPages
+            ];
+            $member->ui_state = $uiState;
+            $member->save();
+        }
+
+        // Створюємо inline-клавіатуру з товарами
+        $inlineKeyboard = [];
+        $row = [];
+        
+        foreach ($productsForPage as $index => $product) {
+            $buttonText = $product->name;
+            // Обрізаємо довгі назви
+            if (strlen($buttonText) > 20) {
+                $buttonText = substr($buttonText, 0, 17) . '...';
+            }
+            
+            $row[] = ['text' => $buttonText, 'callback_data' => 'show_product_' . $product->id];
+            
+            // Додаємо рядок кожні 2 кнопки (максимум 4 товари в рядку)
+            if (count($row) >= 2 || $index === $productsForPage->count() - 1) {
+                $inlineKeyboard[] = $row;
+                $row = [];
+            }
+        }
+
+        // Додаємо кнопки навігації
+        $navigationRow = [];
+        if ($page > 1) {
+            $navigationRow[] = ['text' => '◀ Назад', 'callback_data' => 'navigate_products_' . $subcategoryId . '_' . ($page - 1) . '_prev'];
+        }
+        if ($page < $totalPages) {
+            $navigationRow[] = ['text' => 'Вперед ▶', 'callback_data' => 'navigate_products_' . $subcategoryId . '_' . ($page + 1) . '_next'];
+        }
+        
+        if (!empty($navigationRow)) {
+            $inlineKeyboard[] = $navigationRow;
+        }
+
+        // Додаємо кнопку повернення
+        $inlineKeyboard[] = [['text' => '⬅️ Назад до каталогу', 'callback_data' => 'back_to_catalog']];
+
+        $message = "🛍 <b>Товари підкатегорії \"{$subcategory->name}\"</b>\n";
+        $message .= "Сторінка {$page} з {$totalPages}";
+
+        $this->sendMessageWithCleanup($chatId, $member, [
+            'chat_id' => $chatId,
+            'text' => $message,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
+        ]);
+    }
+
+    private function showProductCard($chatId, $productId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $product = Product::find($productId);
+        
+        if (!$product || !$product->is_visible) {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'Товар не знайдено або недоступний.',
+                'reply_markup' => json_encode(['keyboard' => [['⬅️ Назад', $this->getCartButton($chatId)[0]]], 'resize_keyboard' => true])
+            ]);
+            return;
+        }
+
+        // Оновлюємо стан користувача для відображення товару
+        if ($member) {
+            $this->setCurrentState($member, [
+                'type' => 'product_card',
+                'product_id' => $productId
+            ]);
+        }
+
+        $caption = "<b>{$product->name}</b>\n\n";
+        $caption .= "{$product->description}\n\n";
+        
+        if ($product->options && $product->options->count() > 0) {
+            $inlineKeyboard = [];
+            foreach ($product->options as $option) {
+                $isAvailable = $option->in_stock && $option->current_quantity > 0;
+                $buttonText = $option->name . ' — ' . $option->price . ' грн';
+                if (!$isAvailable) {
+                    $buttonText .= ' (немає в наявності)';
+                }
+                
+                $inlineKeyboard[] = [
+                    ['text' => $buttonText, 'callback_data' => $isAvailable ? 'choose_option_' . $option->id : 'noop']
+                ];
+            }
+        } else {
+            $caption .= "💰 {$product->price} грн";
+            $inlineKeyboard = [
+                [
+                    ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_' . $product->id],
+                    ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
+                ]
+            ];
+        }
+
+        // Додаємо кнопку повернення до списку товарів
+        $inlineKeyboard[] = [['text' => '⬅️ Назад до списку товарів', 'callback_data' => 'back_to_products_list']];
+
+        if (!empty($product->image_url)) {
+            $localPath = public_path('/storage/'.$product->image_url);
+            if (file_exists($localPath)) {
+                $photo = InputFile::create($localPath, basename($localPath));
+            } else {
+                $photo = InputFile::create($product->image_url, basename($product->image_url));
+            }
+            $this->sendMessageWithCleanup($chatId, $member, [
+                'chat_id' => $chatId,
+                'photo' => $photo,
+                'caption' => $caption,
+                'parse_mode' => 'HTML',
+                'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
+            ]);
+        } else {
+            $this->sendMessageWithCleanup($chatId, $member, [
+                'chat_id' => $chatId,
+                'text' => $caption,
+                'parse_mode' => 'HTML',
+                'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
             ]);
         }
     }
@@ -876,6 +1004,20 @@ class TelegramController extends Controller
     {
         Log::info($data);
         $member = Member::where('telegram_id', $chatId)->first();
+        
+        // Зберігаємо ID повідомлення користувача з callback query (якщо це повідомлення користувача)
+        $update = Telegram::getWebhookUpdates();
+        if ($update && $update->isType('callback_query')) {
+            $callbackQuery = $update->getCallbackQuery();
+            if ($callbackQuery && $callbackQuery->getMessage()) {
+                $messageId = $callbackQuery->getMessage()->getMessageId();
+                // Перевіряємо чи це повідомлення користувача (не бота)
+                $from = $callbackQuery->getFrom();
+                if ($from && $from->getId() == $chatId) {
+                    $this->saveUserMessageId($member, $messageId);
+                }
+            }
+        }
         if (str_starts_with($data, 'choose_option_')) {
             if ($member) {
                 $this->pushHistory($member);
@@ -961,6 +1103,9 @@ class TelegramController extends Controller
             if ($prev) {
                 if ($prev['type'] === 'subcategory' && isset($prev['id'])) {
                     $this->sendSubcategoryProductsMenu($chatId, $prev['id']);
+                } elseif ($prev['type'] === 'subcategory_products' && isset($prev['subcategory_id'])) {
+                    $page = $prev['page'] ?? 1;
+                    $this->sendSubcategoryProductsPaginated($chatId, $prev['subcategory_id'], $page);
                 } elseif ($prev['type'] === 'brand' && isset($prev['id'])) {
                     $this->sendBrandProductsMenu($chatId, $prev['id']);
                 } elseif ($prev['type'] === 'catalog') {
@@ -997,6 +1142,64 @@ class TelegramController extends Controller
             $this->setCurrentState($member, ['type' => 'brand', 'id' => $brandId]);
             $member->update(['current_brand_id' => $brandId]);
             $this->sendBrandAnalogMenu($chatId, $brandId);
+            return;
+        } elseif (str_starts_with($data, 'show_product_')) {
+            // Показ карточки товару
+            $productId = (int)str_replace('show_product_', '', $data);
+            if ($member) {
+                $this->pushHistory($member);
+            }
+            $this->showProductCard($chatId, $productId);
+            return;
+        } elseif (str_starts_with($data, 'navigate_products_')) {
+            // Навігація між сторінками товарів (НЕ додаємо в історію)
+            $parts = explode('_', $data);
+            if (count($parts) >= 4) {
+                $subcategoryId = (int)$parts[2];
+                $page = (int)$parts[3];
+                // НЕ додаємо в історію при навігації між сторінками
+                $this->sendSubcategoryProductsPaginated($chatId, $subcategoryId, $page);
+            }
+            return;
+        } elseif ($data === 'back_to_products_list') {
+            // Повернення до списку товарів
+            if ($member) {
+                $prev = $this->popHistory($member);
+                if ($prev && $prev['type'] === 'subcategory_products') {
+                    $subcategoryId = $prev['subcategory_id'] ?? 1;
+                    $page = $prev['page'] ?? 1;
+                    $this->sendSubcategoryProductsPaginated($chatId, $subcategoryId, $page);
+                } else {
+                    $this->sendMainMenu($chatId);
+                }
+            } else {
+                $this->sendMainMenu($chatId);
+            }
+            return;
+        } elseif ($data === 'back_to_catalog') {
+            // Пряме повернення до каталогу (очищуємо історію пагінації)
+            if ($member) {
+                // Знаходимо останній елемент історії типу 'catalog' або 'brand'
+                $uiState = $member->ui_state ?? [];
+                $history = $uiState['history'] ?? [];
+                
+                // Шукаємо останній каталог в історії
+                $lastCatalog = null;
+                for ($i = count($history) - 1; $i >= 0; $i--) {
+                    if (in_array($history[$i]['type'], ['catalog', 'brand'])) {
+                        $lastCatalog = $history[$i];
+                        break;
+                    }
+                }
+                
+                if ($lastCatalog && $lastCatalog['type'] === 'brand' && isset($lastCatalog['id'])) {
+                    $this->sendBrandProductsMenu($chatId, $lastCatalog['id']);
+                } else {
+                    $this->sendCatalogMenu($chatId);
+                }
+            } else {
+                $this->sendCatalogMenu($chatId);
+            }
             return;
         }
 
@@ -1163,7 +1366,7 @@ class TelegramController extends Controller
             'member_id' => $member->id,
             'status' => 'new',
             'total_amount' => $total,
-            'source' => 'cart',
+            'source' => 'bot',
             'notes' => 'Замовлення з бота',
             'payment_type' => $state['payment_type'] ?? $paymentType,
             'payment_receipt' => $state['payment_receipt'] ?? null,
@@ -1270,7 +1473,7 @@ class TelegramController extends Controller
     {
         $member = Member::where('telegram_id', $chatId)->first();
         $product = Product::find($productId);
-        if (!$member || !$product) return;
+        if (!$member || !$product || !$product->is_visible) return;
         $activeOrders = Order::where('member_id', $member->id)
             ->whereIn('status', ['new', 'processing'])
             ->count();
@@ -1429,8 +1632,8 @@ class TelegramController extends Controller
             $uiState = json_decode($uiState, true);
         }
 
+        // Видаляємо повідомлення бота
         $messageIds = $uiState['message_ids'] ?? [];
-        
         foreach ($messageIds as $messageId) {
             try {
                 Telegram::deleteMessage([
@@ -1439,7 +1642,7 @@ class TelegramController extends Controller
                 ]);
             } catch (\Exception $e) {
                 // Логуємо помилку, але не зупиняємо виконання
-                Log::warning('Не вдалося видалити повідомлення', [
+                Log::warning('Не вдалося видалити повідомлення бота', [
                     'chat_id' => $chatId,
                     'message_id' => $messageId,
                     'error' => $e->getMessage()
@@ -1447,8 +1650,27 @@ class TelegramController extends Controller
             }
         }
 
-        // Очищаємо список повідомлень
+        // Видаляємо повідомлення користувача
+        $userMessageIds = $uiState['user_message_ids'] ?? [];
+        foreach ($userMessageIds as $messageId) {
+            try {
+                Telegram::deleteMessage([
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId
+                ]);
+            } catch (\Exception $e) {
+                // Логуємо помилку, але не зупиняємо виконання
+                Log::warning('Не вдалося видалити повідомлення користувача', [
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        // Очищаємо списки повідомлень
         $uiState['message_ids'] = [];
+        $uiState['user_message_ids'] = [];
         $member->ui_state = $uiState;
         $member->save();
     }
@@ -1478,6 +1700,35 @@ class TelegramController extends Controller
     }
 
     /**
+     * Зберігає ID повідомлення користувача для можливого видалення
+     */
+    private function saveUserMessageId($member, $messageId)
+    {
+        if (!$member || !$messageId) {
+            return;
+        }
+
+        $uiState = $member->ui_state ?? [];
+        if (is_string($uiState)) {
+            $uiState = json_decode($uiState, true);
+        }
+
+        if (!isset($uiState['user_message_ids'])) {
+            $uiState['user_message_ids'] = [];
+        }
+
+        $uiState['user_message_ids'][] = $messageId;
+        
+        // Обмежуємо кількість збережених повідомлень користувача (останні 10)
+        if (count($uiState['user_message_ids']) > 10) {
+            $uiState['user_message_ids'] = array_slice($uiState['user_message_ids'], -10);
+        }
+        
+        $member->ui_state = $uiState;
+        $member->save();
+    }
+
+    /**
      * Відправляє повідомлення з очищенням попередніх
      */
     private function sendMessageWithCleanup($chatId, $member, $params)
@@ -1485,8 +1736,12 @@ class TelegramController extends Controller
         // Видаляємо попередні повідомлення
         $this->deletePreviousMessages($chatId, $member);
 
-        // Відправляємо нове повідомлення
-        $response = Telegram::sendMessage($params);
+        // Відправляємо нове повідомлення (фото або текст)
+        if (isset($params['photo'])) {
+            $response = Telegram::sendPhoto($params);
+        } else {
+            $response = Telegram::sendMessage($params);
+        }
 
         // Зберігаємо ID нового повідомлення
         if (isset($response['message_id'])) {

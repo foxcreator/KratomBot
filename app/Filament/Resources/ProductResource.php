@@ -61,6 +61,10 @@ class ProductResource extends Resource
                     ->label('Зображення')
                     ->imageEditor()
                     ->image(),
+                Forms\Components\Toggle::make('is_visible')
+                    ->label('Видимий в боті')
+                    ->default(true)
+                    ->required(),
             ]);
     }
 
@@ -91,6 +95,13 @@ class ProductResource extends Resource
                 Tables\Columns\IconColumn::make('is_top_sales')
                     ->label('Топ продажів')
                     ->boolean(),
+                Tables\Columns\IconColumn::make('is_visible')
+                    ->label('Видимий в боті')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-eye')
+                    ->falseIcon('heroicon-o-eye-slash')
+                    ->trueColor('success')
+                    ->falseColor('danger'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -101,7 +112,16 @@ class ProductResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\TernaryFilter::make('is_visible')
+                    ->label('Видимість в боті')
+                    ->placeholder('Всі товари')
+                    ->trueLabel('Тільки видимі')
+                    ->falseLabel('Тільки приховані'),
+                Tables\Filters\TernaryFilter::make('is_top_sales')
+                    ->label('Топ продажів')
+                    ->placeholder('Всі товари')
+                    ->trueLabel('Тільки топ продажі')
+                    ->falseLabel('Звичайні товари'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

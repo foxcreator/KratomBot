@@ -72,6 +72,14 @@ class Order extends Model
         self::PAYMENT_STATUS_OVERPAID => 'Переплачено',
     ];
 
+    const SOURCE_ADMIN = 'admin';
+    const SOURCE_BOT = 'bot';
+
+    const SOURCES = [
+        self::SOURCE_ADMIN => 'Адмін-панель',
+        self::SOURCE_BOT => 'Telegram бот',
+    ];
+
     protected static function boot()
     {
         parent::boot();
@@ -195,6 +203,11 @@ class Order extends Model
     public function getFormattedRemainingAmountAttribute()
     {
         return number_format((float) $this->remaining_amount, 2) . ' грн';
+    }
+
+    public function getSourceNameAttribute()
+    {
+        return self::SOURCES[$this->source] ?? 'Невідомо';
     }
 
     /**
