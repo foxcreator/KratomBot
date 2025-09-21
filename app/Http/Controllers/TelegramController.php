@@ -62,12 +62,18 @@ class TelegramController extends Controller
                 $chatId = $update->getMessage()->getChat()->getId();
                 $username = $update->getMessage()->getFrom()->getUsername();
                 $text = $update->getMessage()->getText();
+                $messageId = $update->getMessage()->getMessageId();
 
                 $member = \App\Models\Member::query()->firstOrNew(['telegram_id' => $chatId]);
 
                 $member->username = $username;
                 if (is_null($member->full_name)) {
                     $member->full_name = $username;
+                }
+
+                // Зберігаємо ID повідомлення користувача для можливого видалення
+                if ($messageId) {
+                    $this->saveUserMessageId($member, $messageId);
                 }
 
                 $member->save();
@@ -273,10 +279,10 @@ class TelegramController extends Controller
     {
         $member = Member::where('telegram_id', $chatId)->first();
         $product = Product::find($productId);
-        if (!$member || !$product) {
+        if (!$member || !$product || !$product->is_visible) {
             Telegram::answerCallbackQuery([
                 'callback_query_id' => $this->getCallbackQueryId(),
-                'text' => 'Помилка додавання товару'
+                'text' => 'Товар недоступний'
             ]);
             return;
         }
@@ -552,7 +558,7 @@ class TelegramController extends Controller
                     $this->pushHistory($member);
                     $this->setCurrentState($member, ['type' => 'top']);
                 }
-                $products = Product::where('is_top_sales', true)->get();
+                $products = Product::where('is_top_sales', true)->where('is_visible', true)->get();
                 if ($products->count() > 0) {
                     foreach ($products as $index => $product) {
                         $caption = ($index+1) . ". <b>{$product->name}</b>\n";
@@ -824,7 +830,7 @@ class TelegramController extends Controller
             return;
         }
 
-        $products = Product::where('subcategory_id', $subcategoryId)->get();
+        $products = Product::where('subcategory_id', $subcategoryId)->where('is_visible', true)->get();
         $totalProducts = $products->count();
         
         if ($totalProducts === 0) {
@@ -912,10 +918,10 @@ class TelegramController extends Controller
         $member = Member::where('telegram_id', $chatId)->first();
         $product = Product::find($productId);
         
-        if (!$product) {
+        if (!$product || !$product->is_visible) {
             Telegram::sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'Товар не знайдено.',
+                'text' => 'Товар не знайдено або недоступний.',
                 'reply_markup' => json_encode(['keyboard' => [['⬅️ Назад', $this->getCartButton($chatId)[0]]], 'resize_keyboard' => true])
             ]);
             return;
@@ -997,6 +1003,20 @@ class TelegramController extends Controller
     {
         Log::info($data);
         $member = Member::where('telegram_id', $chatId)->first();
+        
+        // Зберігаємо ID повідомлення користувача з callback query (якщо це повідомлення користувача)
+        $update = Telegram::getWebhookUpdates();
+        if ($update && $update->isType('callback_query')) {
+            $callbackQuery = $update->getCallbackQuery();
+            if ($callbackQuery && $callbackQuery->getMessage()) {
+                $messageId = $callbackQuery->getMessage()->getMessageId();
+                // Перевіряємо чи це повідомлення користувача (не бота)
+                $from = $callbackQuery->getFrom();
+                if ($from && $from->getId() == $chatId) {
+                    $this->saveUserMessageId($member, $messageId);
+                }
+            }
+        }
         if (str_starts_with($data, 'choose_option_')) {
             if ($member) {
                 $this->pushHistory($member);
@@ -1452,7 +1472,7 @@ class TelegramController extends Controller
     {
         $member = Member::where('telegram_id', $chatId)->first();
         $product = Product::find($productId);
-        if (!$member || !$product) return;
+        if (!$member || !$product || !$product->is_visible) return;
         $activeOrders = Order::where('member_id', $member->id)
             ->whereIn('status', ['new', 'processing'])
             ->count();
@@ -1611,8 +1631,8 @@ class TelegramController extends Controller
             $uiState = json_decode($uiState, true);
         }
 
+        // Видаляємо повідомлення бота
         $messageIds = $uiState['message_ids'] ?? [];
-        
         foreach ($messageIds as $messageId) {
             try {
                 Telegram::deleteMessage([
@@ -1621,7 +1641,7 @@ class TelegramController extends Controller
                 ]);
             } catch (\Exception $e) {
                 // Логуємо помилку, але не зупиняємо виконання
-                Log::warning('Не вдалося видалити повідомлення', [
+                Log::warning('Не вдалося видалити повідомлення бота', [
                     'chat_id' => $chatId,
                     'message_id' => $messageId,
                     'error' => $e->getMessage()
@@ -1629,8 +1649,27 @@ class TelegramController extends Controller
             }
         }
 
-        // Очищаємо список повідомлень
+        // Видаляємо повідомлення користувача
+        $userMessageIds = $uiState['user_message_ids'] ?? [];
+        foreach ($userMessageIds as $messageId) {
+            try {
+                Telegram::deleteMessage([
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId
+                ]);
+            } catch (\Exception $e) {
+                // Логуємо помилку, але не зупиняємо виконання
+                Log::warning('Не вдалося видалити повідомлення користувача', [
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        // Очищаємо списки повідомлень
         $uiState['message_ids'] = [];
+        $uiState['user_message_ids'] = [];
         $member->ui_state = $uiState;
         $member->save();
     }
@@ -1655,6 +1694,35 @@ class TelegramController extends Controller
 
         $uiState['message_ids'][] = $messageId;
         $uiState['last_message_id'] = $messageId;
+        $member->ui_state = $uiState;
+        $member->save();
+    }
+
+    /**
+     * Зберігає ID повідомлення користувача для можливого видалення
+     */
+    private function saveUserMessageId($member, $messageId)
+    {
+        if (!$member || !$messageId) {
+            return;
+        }
+
+        $uiState = $member->ui_state ?? [];
+        if (is_string($uiState)) {
+            $uiState = json_decode($uiState, true);
+        }
+
+        if (!isset($uiState['user_message_ids'])) {
+            $uiState['user_message_ids'] = [];
+        }
+
+        $uiState['user_message_ids'][] = $messageId;
+        
+        // Обмежуємо кількість збережених повідомлень користувача (останні 10)
+        if (count($uiState['user_message_ids']) > 10) {
+            $uiState['user_message_ids'] = array_slice($uiState['user_message_ids'], -10);
+        }
+        
         $member->ui_state = $uiState;
         $member->save();
     }

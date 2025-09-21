@@ -18,6 +18,7 @@ class Product extends Model
         'brand_id',
         'subcategory_id',
         'is_top_sales',
+        'is_visible',
     ];
 
     public function brand()
