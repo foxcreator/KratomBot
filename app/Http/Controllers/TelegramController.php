@@ -720,6 +720,7 @@ class TelegramController extends Controller
                             'member_id' => $member->id,
                             'product_id' => $productId,
                             'status' => 'new',
+                            'source' => 'bot',
                         ]);
                     }
                     Telegram::sendMessage([
@@ -1365,7 +1366,7 @@ class TelegramController extends Controller
             'member_id' => $member->id,
             'status' => 'new',
             'total_amount' => $total,
-            'source' => 'cart',
+            'source' => 'bot',
             'notes' => 'Замовлення з бота',
             'payment_type' => $state['payment_type'] ?? $paymentType,
             'payment_receipt' => $state['payment_receipt'] ?? null,

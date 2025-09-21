@@ -207,13 +207,11 @@ class OrderResource extends Resource
                     ->visible(fn (callable $get) => !empty($get('member_id')))
                     ->columnSpanFull(),
 
-                Forms\Components\TextInput::make('source')
-                    ->label('Джерело')
-                    ->required()
-                    ->maxLength(255)
-                    ->readOnly()
-                    ->hidden()
-                    ->default('Пряме замовлення'),
+                Forms\Components\Select::make('source')
+                    ->label('Джерело замовлення')
+                    ->options(Order::SOURCES)
+                    ->default(Order::SOURCE_ADMIN)
+                    ->required(),
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('total_amount')
                         ->label('До оплати')
@@ -391,6 +389,14 @@ class OrderResource extends Resource
                         'paid' => 'success',
                         'overpaid' => 'info',
                     }),
+                Tables\Columns\TextColumn::make('sourceName')
+                    ->label('Джерело')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Адмін-панель' => 'info',
+                        'Telegram бот' => 'success',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('shipping_phone')
                     ->label('Телефон отримувача')
                     ->searchable(),
@@ -448,6 +454,11 @@ class OrderResource extends Resource
                 SelectFilter::make('payment_status')
                     ->label('Статус оплати')
                     ->options(Order::PAYMENT_STATUSES)
+                    ->placeholder('Всі')
+                    ->searchable(),
+                SelectFilter::make('source')
+                    ->label('Джерело замовлення')
+                    ->options(Order::SOURCES)
                     ->placeholder('Всі')
                     ->searchable(),
             ])
