@@ -34,7 +34,7 @@ class TelegramController extends Controller
         'AWAIT_SHIPPING_NAME' => 'await_shipping_name',
     ];
 
-    const PRODUCTS_PER_PAGE = 8;
+    const PRODUCTS_PER_PAGE = 5;
 
     public function __construct()
     {
@@ -869,22 +869,16 @@ class TelegramController extends Controller
 
         // Створюємо inline-клавіатуру з товарами
         $inlineKeyboard = [];
-        $row = [];
         
-        foreach ($productsForPage as $index => $product) {
+        foreach ($productsForPage as $product) {
             $buttonText = $product->name;
             // Обрізаємо довгі назви
-            if (strlen($buttonText) > 20) {
-                $buttonText = substr($buttonText, 0, 17) . '...';
+            if (strlen($buttonText) > 30) {
+                $buttonText = substr($buttonText, 0, 27) . '...';
             }
             
-            $row[] = ['text' => $buttonText, 'callback_data' => 'show_product_' . $product->id];
-            
-            // Додаємо рядок кожні 2 кнопки (максимум 4 товари в рядку)
-            if (count($row) >= 2 || $index === $productsForPage->count() - 1) {
-                $inlineKeyboard[] = $row;
-                $row = [];
-            }
+            // Додаємо кожен товар в окремий рядок
+            $inlineKeyboard[] = [['text' => $buttonText, 'callback_data' => 'show_product_' . $product->id]];
         }
 
         // Додаємо кнопки навігації
