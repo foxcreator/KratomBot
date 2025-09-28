@@ -29,7 +29,6 @@ class TelegramController extends Controller
         'AWAIT_RECEIPT_PHOTO' => 'await_receipt_photo',
         'AWAIT_SHIPPING_PHONE' => 'await_shipping_phone',
         'AWAIT_SHIPPING_CITY' => 'await_shipping_city',
-        'AWAIT_SHIPPING_CARRIER' => 'await_shipping_carrier',
         'AWAIT_SHIPPING_OFFICE' => 'await_shipping_office',
         'AWAIT_SHIPPING_NAME' => 'await_shipping_name',
     ];
@@ -215,6 +214,7 @@ class TelegramController extends Controller
         if (!$hasOrders) {
             $keyboard[] = [['text' => '🚚 Накладений платіж', 'callback_data' => 'pay_type_cod']];
         }
+        $keyboard[] = [['text' => '⬅️ Назад до кошика', 'callback_data' => 'back_to_cart']];
         $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => "Оберіть спосіб оплати:\n\n<b>Передплата</b> — оплата на картку, після чого ви надсилаєте фото квитанції.\n<b>Накладений платіж</b> — оплата при отриманні (доступно лише для першого замовлення).",
@@ -315,6 +315,9 @@ class TelegramController extends Controller
             'callback_query_id' => $this->getCallbackQueryId(),
             'text' => "✅ {$product->name} додано в корзину"
         ]);
+
+        // Показуємо основне меню після додавання товару в кошик
+        $this->sendMainMenu($chatId, "✅ Товар додано в кошик!");
     }
 
     private function removeFromCart($chatId, $itemId)
@@ -458,31 +461,30 @@ class TelegramController extends Controller
                 $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_CITY'];
                 $member->checkout_state = $state;
                 $member->save();
+                $this->removeMainKeyboard($chatId);
+                $keyboard = [
+                    [['text' => '⬅️ Назад до телефону', 'callback_data' => 'back_to_phone_step']]
+                ];
                 $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
-                    'text' => "Введіть місто для відправки:"
+                    'text' => "Введіть місто для відправки:",
+                    'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
                 ]);
                 return;
             } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_CITY']) {
                 $state['shipping_city'] = $text;
-                $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_CARRIER'];
-                $member->checkout_state = $state;
-                $member->save();
-                $this->sendMessageWithCleanup($chatId, $member, [
-                    'chat_id' => $chatId,
-                    'text' => "Оберіть поштового оператора:",
-                    'reply_markup' => json_encode(['keyboard' => [['Нова Пошта']], 'resize_keyboard' => true])
-                ]);
-                return;
-            } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_CARRIER']) {
-                $state['shipping_carrier'] = $text;
+                $state['shipping_carrier'] = 'Нова Пошта';
                 $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE'];
                 $member->checkout_state = $state;
                 $member->save();
+                $this->removeMainKeyboard($chatId);
+                $keyboard = [
+                    [['text' => '⬅️ Назад до міста', 'callback_data' => 'back_to_city_step']]
+                ];
                 $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
-                    'text' => "Введіть номер відділення:",
-                    'reply_markup' => json_encode(['remove_keyboard' => true])
+                    'text' => "Введіть номер відділення Нової Пошти:",
+                    'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
                 ]);
                 return;
             } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE']) {
@@ -490,9 +492,14 @@ class TelegramController extends Controller
                 $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_NAME'];
                 $member->checkout_state = $state;
                 $member->save();
+                $this->removeMainKeyboard($chatId);
+                $keyboard = [
+                    [['text' => '⬅️ Назад до відділення', 'callback_data' => 'back_to_office_step']]
+                ];
                 $this->sendMessageWithCleanup($chatId, $member, [
                     'chat_id' => $chatId,
-                    'text' => "Введіть ПІБ отримувача:"
+                    'text' => "Введіть ПІБ отримувача:",
+                    'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
                 ]);
                 return;
             } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_NAME']) {
@@ -503,7 +510,6 @@ class TelegramController extends Controller
                 $requiredFields = [
                     'shipping_phone',
                     'shipping_city',
-                    'shipping_carrier',
                     'shipping_office',
                     'shipping_name',
                 ];
@@ -520,7 +526,6 @@ class TelegramController extends Controller
                     $fieldNames = [
                         'shipping_phone' => 'номер телефону',
                         'shipping_city' => 'місто',
-                        'shipping_carrier' => 'поштовий оператор',
                         'shipping_office' => 'номер відділення',
                         'shipping_name' => 'ПІБ отримувача',
                     ];
@@ -1123,6 +1128,21 @@ class TelegramController extends Controller
         } elseif ($data === 'pay_type_cod') {
             $this->startCodCheckout($chatId);
             return;
+        } elseif ($data === 'back_to_cart') {
+            $this->showCart($chatId);
+            return;
+        } elseif ($data === 'back_to_payment_selection') {
+            $this->checkoutCart($chatId);
+            return;
+        } elseif ($data === 'back_to_phone_step') {
+            $this->handleBackToPhoneStep($chatId);
+            return;
+        } elseif ($data === 'back_to_city_step') {
+            $this->handleBackToCityStep($chatId);
+            return;
+        } elseif ($data === 'back_to_office_step') {
+            $this->handleBackToOfficeStep($chatId);
+            return;
         } elseif (str_starts_with($data, 'show_subcategory_')) {
             if ($member) {
                 $subcategoryId = (int)str_replace('show_subcategory_', '', $data);
@@ -1266,6 +1286,9 @@ class TelegramController extends Controller
             'callback_query_id' => $this->getCallbackQueryId(),
             'text' => "✅ {$product->name} ({$option->name}) додано в корзину"
         ]);
+
+        // Показуємо основне меню після додавання товару в кошик
+        $this->sendMainMenu($chatId, "✅ Товар додано в кошик!");
         $inlineKeyboard = [];
         foreach ($product->options as $opt) {
             $isAvailable = $opt->in_stock && $opt->current_quantity > 0;
@@ -1321,10 +1344,15 @@ class TelegramController extends Controller
         } else {
             $totalText = "\n💸 <b>Сума до оплати:</b> <b>" . number_format($total, 2) . " грн</b>\n";
         }
+        $this->removeMainKeyboard($chatId);
+        $keyboard = [
+            [['text' => '⬅️ Назад до вибору оплати', 'callback_data' => 'back_to_payment_selection']]
+        ];
         $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => "<b>Оплата замовлення</b>\n\n$totalText$requisites\n\nПісля оплати надішліть фото квитанції у цей чат.",
             'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
         ]);
     }
 
@@ -1336,9 +1364,14 @@ class TelegramController extends Controller
         $state['payment_type'] = 'cod';
         $member->checkout_state = $state;
         $member->save();
+        $this->removeMainKeyboard($chatId);
+        $keyboard = [
+            [['text' => '⬅️ Назад до вибору оплати', 'callback_data' => 'back_to_payment_selection']]
+        ];
         $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
-            'text' => "Введіть номер телефону для відправки (у форматі +380...)"
+            'text' => "Введіть номер телефону для відправки (у форматі +380...)",
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
         ]);
     }
 
@@ -1449,6 +1482,7 @@ class TelegramController extends Controller
                             $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE'];
                             $member->checkout_state = $state;
                             $member->save();
+                            $this->removeMainKeyboard($chatId);
                             $this->sendMessageWithCleanup($chatId, $member, [
                                 'chat_id' => $chatId,
                                 'text' => "Дякуємо! Тепер введіть номер телефону для відправки (у форматі +380...):"
@@ -1743,5 +1777,88 @@ class TelegramController extends Controller
         }
 
         return $response;
+    }
+
+    /**
+     * Видаляє основну клавіатуру
+     */
+    private function removeMainKeyboard($chatId)
+    {
+        try {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => ' ',
+                'reply_markup' => json_encode(['remove_keyboard' => true])
+            ]);
+        } catch (\Exception $e) {
+            // Логуємо помилку, але не зупиняємо виконання
+            Log::warning('Не вдалося видалити клавіатуру', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    private function handleBackToPhoneStep($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        if (!$member) return;
+
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE'];
+        $member->checkout_state = $state;
+        $member->save();
+
+        $keyboard = [
+            [['text' => '⬅️ Назад до вибору оплати', 'callback_data' => 'back_to_payment_selection']]
+        ];
+        $this->removeMainKeyboard($chatId);
+        $this->sendMessageWithCleanup($chatId, $member, [
+            'chat_id' => $chatId,
+            'text' => "Введіть номер телефону для відправки (у форматі +380...)",
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+    }
+
+    private function handleBackToCityStep($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        if (!$member) return;
+
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_CITY'];
+        $member->checkout_state = $state;
+        $member->save();
+
+        $keyboard = [
+            [['text' => '⬅️ Назад до телефону', 'callback_data' => 'back_to_phone_step']]
+        ];
+        $this->removeMainKeyboard($chatId);
+        $this->sendMessageWithCleanup($chatId, $member, [
+            'chat_id' => $chatId,
+            'text' => "Введіть місто для відправки:",
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+    }
+
+    private function handleBackToOfficeStep($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        if (!$member) return;
+
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE'];
+        $member->checkout_state = $state;
+        $member->save();
+
+        $keyboard = [
+            [['text' => '⬅️ Назад до міста', 'callback_data' => 'back_to_city_step']]
+        ];
+        $this->removeMainKeyboard($chatId);
+        $this->sendMessageWithCleanup($chatId, $member, [
+            'chat_id' => $chatId,
+            'text' => "Введіть номер відділення Нової Пошти:",
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
     }
 }

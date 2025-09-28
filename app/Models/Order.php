@@ -21,6 +21,7 @@ class Order extends Model
         'paid_amount',
         'remaining_amount',
         'payment_status',
+        'payment_type',
         'payment_receipt',
         'notes',
         'source',

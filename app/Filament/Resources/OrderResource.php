@@ -212,6 +212,15 @@ class OrderResource extends Resource
                     ->options(Order::SOURCES)
                     ->default(Order::SOURCE_ADMIN)
                     ->required(),
+
+                Forms\Components\Select::make('payment_type')
+                    ->label('Тип оплати')
+                    ->options([
+                        'prepaid' => 'Передплата',
+                        'cod' => 'Накладений платіж',
+                    ])
+                    ->default('prepaid')
+                    ->nullable(),
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('total_amount')
                         ->label('До оплати')
