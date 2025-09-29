@@ -130,7 +130,7 @@ class TelegramController extends Controller
             ->with(['cartItems.productOption', 'cartItems.product'])
             ->first();
         if (!$member || $member->cartItems->isEmpty()) {
-            Telegram::sendMessage([
+            $this->sendMessageWithCleanup($chatId, $member, [
                 'chat_id' => $chatId,
                 'text' => '🛒 Ваш кошик порожній',
                 'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
@@ -177,7 +177,10 @@ class TelegramController extends Controller
             ['text' => '💳 Замовити зараз', 'callback_data' => 'checkout_cart'],
             ['text' => '🗑 Очистити кошик', 'callback_data' => 'clear_cart']
         ];
-        Telegram::sendMessage([
+        $inlineKeyboard[] = [
+            ['text' => '⬅️ Назад', 'callback_data' => 'back_to_previous']
+        ];
+        $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
             'text' => $message,
             'parse_mode' => 'HTML',
@@ -199,10 +202,13 @@ class TelegramController extends Controller
             ->whereIn('status', ['new', 'processing'])
             ->count();
         if ($activeOrders > 0) {
-            Telegram::sendMessage([
+            $inlineKeyboard = [
+                [['text' => '🏠 До головного меню', 'callback_data' => 'back_to_main_menu']]
+            ];
+            $this->sendMessageWithCleanup($chatId, $member, [
                 'chat_id' => $chatId,
                 'text' => "У вас вже є активне замовлення. Будь ласка, дочекайтесь підтвердження попереднього ⏳\nНаш менеджер звʼяжеться з вами найближчим часом 📞",
-                'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
+                'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
             ]);
             return;
         }
@@ -255,6 +261,24 @@ class TelegramController extends Controller
         $member->save();
     }
 
+    private function showClearCartConfirmation($chatId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        
+        $inlineKeyboard = [
+            [
+                ['text' => '✅ Так, очистити', 'callback_data' => 'confirm_clear_cart'],
+                ['text' => '❌ Скасувати', 'callback_data' => 'cancel_clear_cart']
+            ]
+        ];
+        
+        $this->sendMessageWithCleanup($chatId, $member, [
+            'chat_id' => $chatId,
+            'text' => '🗑 Ви дійсно хочете очистити кошик?',
+            'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
+        ]);
+    }
+
     private function clearCart($chatId)
     {
         $member = Member::where('telegram_id', $chatId)->first();
@@ -268,11 +292,7 @@ class TelegramController extends Controller
             'text' => 'Кошик очищений'
         ]);
 
-        Telegram::sendMessage([
-            'chat_id' => $chatId,
-            'text' => '🗑 Кошик очищений',
-            'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
-        ]);
+        $this->sendMainMenu($chatId, '🗑 Кошик очищений');
     }
 
     private function addToCart($chatId, $productId)
@@ -379,11 +399,7 @@ class TelegramController extends Controller
         $member = Member::where('telegram_id', $chatId)->first();
 
         if (!$member || $member->cartItems->isEmpty()) {
-            Telegram::sendMessage([
-                'chat_id' => $chatId,
-                'text' => '🛒 Ваш кошик порожній',
-                'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
-            ]);
+            $this->sendMainMenu($chatId, '🛒 Ваш кошик порожній');
             return;
         }
 
@@ -598,18 +614,19 @@ class TelegramController extends Controller
                         ]);
                     }
 
-                    Telegram::sendMessage([
+                    $this->sendMessageWithCleanup($chatId, $member, [
                         'chat_id' => $chatId,
                         'text' => "Хіти продажів — найулюбленіші товари наших клієнтів 🏆"
                     ]);
                 } else {
-                    Telegram::sendMessage([
-                        'chat_id' => $chatId,
-                        'text' => "Топ продажів поки що порожній."
-                    ]);
+                    $this->sendMainMenu($chatId, "Топ продажів поки що порожній.");
                 }
                 break;
             case (preg_match('/^🛒 Кошик/', $text) ? true : false):
+                if ($member) {
+                    $this->pushHistory($member);
+                    $this->setCurrentState($member, ['type' => 'cart']);
+                }
                 $this->showCart($chatId);
                 break;
             case '💳 Оформити замовлення':
@@ -647,6 +664,11 @@ class TelegramController extends Controller
                 break;
             case '⬅️ Назад':
                 $prev = $this->popHistory($member);
+                // Очищуємо checkout_state при поверненні
+                if ($member && $member->checkout_state) {
+                    $member->checkout_state = null;
+                    $member->save();
+                }
                 if ($prev) {
                     if ($prev['type'] === 'subcategory' && isset($prev['id'])) {
                         $this->sendSubcategoryProductsMenu($chatId, $prev['id']);
@@ -828,11 +850,7 @@ class TelegramController extends Controller
         $subcategory = Subcategory::find($subcategoryId);
         
         if (!$subcategory) {
-            Telegram::sendMessage([
-                'chat_id' => $chatId,
-                'text' => 'Підкатегорія не знайдена.',
-                'reply_markup' => json_encode(['keyboard' => [['⬅️ Назад', $this->getCartButton($chatId)[0]]], 'resize_keyboard' => true])
-            ]);
+            $this->sendMainMenu($chatId, 'Підкатегорія не знайдена.');
             return;
         }
 
@@ -840,11 +858,7 @@ class TelegramController extends Controller
         $totalProducts = $products->count();
         
         if ($totalProducts === 0) {
-            Telegram::sendMessage([
-                'chat_id' => $chatId,
-                'text' => 'У цій підкатегорії ще немає товарів.',
-                'reply_markup' => json_encode(['keyboard' => [['⬅️ Назад', $this->getCartButton($chatId)[0]]], 'resize_keyboard' => true])
-            ]);
+            $this->sendMainMenu($chatId, 'У цій підкатегорії ще немає товарів.');
             return;
         }
 
@@ -919,11 +933,7 @@ class TelegramController extends Controller
         $product = Product::find($productId);
         
         if (!$product || !$product->is_visible) {
-            Telegram::sendMessage([
-                'chat_id' => $chatId,
-                'text' => 'Товар не знайдено або недоступний.',
-                'reply_markup' => json_encode(['keyboard' => [['⬅️ Назад', $this->getCartButton($chatId)[0]]], 'resize_keyboard' => true])
-            ]);
+            $this->sendMainMenu($chatId, 'Товар не знайдено або недоступний.');
             return;
         }
 
@@ -1096,8 +1106,13 @@ class TelegramController extends Controller
         } elseif ($data === 'checkout_cart') {
             $this->checkoutCart($chatId);
         } elseif ($data === 'clear_cart') {
-            $this->clearCart($chatId);
+            $this->showClearCartConfirmation($chatId);
         } elseif ($data === 'back_to_previous') {
+            // Очищуємо checkout_state при поверненні
+            if ($member && $member->checkout_state) {
+                $member->checkout_state = null;
+                $member->save();
+            }
             $prev = $this->popHistory($member);
             if ($prev) {
                 if ($prev['type'] === 'subcategory' && isset($prev['id'])) {
@@ -1111,6 +1126,8 @@ class TelegramController extends Controller
                     $this->sendCatalogMenu($chatId);
                 } elseif ($prev['type'] === 'main') {
                     $this->sendMainMenu($chatId);
+                } elseif ($prev['type'] === 'cart') {
+                    $this->showCart($chatId);
                 } elseif ($prev['type'] === 'analogs') {
 
                 } elseif ($prev['type'] === 'moringa') {
@@ -1214,6 +1231,25 @@ class TelegramController extends Controller
             } else {
                 $this->sendCatalogMenu($chatId);
             }
+            return;
+        } elseif ($data === 'back_to_main_menu') {
+            // Пряме повернення до головного меню (очищуємо історію та стан)
+            if ($member) {
+                // Очищуємо історію навігації та checkout_state
+                $uiState = $member->ui_state ?? [];
+                $uiState['history'] = [];
+                $uiState['current'] = ['type' => 'main'];
+                $member->ui_state = $uiState;
+                $member->checkout_state = null; // Очищуємо стан оформлення замовлення
+                $member->save();
+            }
+            $this->sendMainMenu($chatId, "🏠 Головне меню");
+            return;
+        } elseif ($data === 'confirm_clear_cart') {
+            $this->clearCart($chatId);
+            return;
+        } elseif ($data === 'cancel_clear_cart') {
+            $this->showCart($chatId);
             return;
         }
 
@@ -1506,9 +1542,13 @@ class TelegramController extends Controller
             ->whereIn('status', ['new', 'processing'])
             ->count();
         if ($activeOrders > 0) {
-            Telegram::sendMessage([
+            $inlineKeyboard = [
+                [['text' => '🏠 До головного меню', 'callback_data' => 'back_to_main_menu']]
+            ];
+            $this->sendMessageWithCleanup($chatId, $member, [
                 'chat_id' => $chatId,
-                'text' => "У вас вже є активне замовлення. Будь ласка, дочекайтесь підтвердження попереднього ⏳\nНаш менеджер звʼяжеться з вами найближчим часом 📞"
+                'text' => "У вас вже є активне замовлення. Будь ласка, дочекайтесь підтвердження попереднього ⏳\nНаш менеджер звʼяжеться з вами найближчим часом 📞",
+                'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
             ]);
             return;
         }
@@ -1547,9 +1587,13 @@ class TelegramController extends Controller
             ->whereIn('status', ['new', 'processing'])
             ->count();
         if ($activeOrders > 0) {
-            Telegram::sendMessage([
+            $inlineKeyboard = [
+                [['text' => '🏠 До головного меню', 'callback_data' => 'back_to_main_menu']]
+            ];
+            $this->sendMessageWithCleanup($chatId, $member, [
                 'chat_id' => $chatId,
-                'text' => "У вас вже є активне замовлення. Будь ласка, дочекайтесь підтвердження попереднього ⏳\nНаш менеджер звʼяжеться з вами найближчим часом 📞"
+                'text' => "У вас вже є активне замовлення. Будь ласка, дочекайтесь підтвердження попереднього ⏳\nНаш менеджер звʼяжеться з вами найближчим часом 📞",
+                'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
             ]);
             return;
         }
