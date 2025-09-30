@@ -10,6 +10,8 @@ use App\Models\PaymentType;
 use App\Models\CashRegister;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -94,6 +96,39 @@ class DebtAccountResource extends Resource
                 Forms\Components\Textarea::make('notes')
                     ->label('Нотатки')
                     ->columnSpanFull(),
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Інформація про заборгованість')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('member.full_name')
+                            ->label('Клієнт'),
+                        Infolists\Components\TextEntry::make('member.phone')
+                            ->label('Телефон'),
+                        Infolists\Components\TextEntry::make('total_debt')
+                            ->label('Загальний борг')
+                            ->money('UAH'),
+                        Infolists\Components\TextEntry::make('paid_amount')
+                            ->label('Сплачено')
+                            ->money('UAH'),
+                        Infolists\Components\TextEntry::make('remaining_debt')
+                            ->label('Залишок')
+                            ->money('UAH')
+                            ->color(fn ($record) => $record->remaining_debt > 0 ? 'danger' : 'success'),
+                        Infolists\Components\TextEntry::make('statusName')
+                            ->label('Статус')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Активний' => 'warning',
+                                'Закритий' => 'success',
+                                'Прострочений' => 'danger',
+                            }),
+                    ])
+                    ->columns(2),
             ]);
     }
 

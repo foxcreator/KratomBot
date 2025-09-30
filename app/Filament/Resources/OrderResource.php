@@ -17,6 +17,8 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -356,25 +358,95 @@ class OrderResource extends Resource
             ]);
     }
 
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Основна інформація')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('order_number')
+                            ->label('Номер замовлення'),
+                        Infolists\Components\TextEntry::make('status')
+                            ->label('Статус')
+                            ->formatStateUsing(fn ($state) => Order::STATUSES[$state] ?? 'Невідомо')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'new' => 'warning',
+                                'pending_payment' => 'danger',
+                                'partially_paid' => 'warning',
+                                'paid' => 'success',
+                                'processing' => 'info',
+                                'completed' => 'success',
+                                'cancelled' => 'danger',
+                            }),
+                        Infolists\Components\TextEntry::make('member.full_name')
+                            ->label('Клієнт'),
+                        Infolists\Components\TextEntry::make('created_at')
+                            ->label('Дата створення')
+                            ->dateTime(),
+                    ])
+                    ->columns(2),
+
+                Infolists\Components\Section::make('Фінансові показники')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('total_amount')
+                            ->label('Загальна сума')
+                            ->money('UAH'),
+                        Infolists\Components\TextEntry::make('final_amount')
+                            ->label('Фінальна сума')
+                            ->money('UAH'),
+                        Infolists\Components\TextEntry::make('paid_amount')
+                            ->label('Сплачено')
+                            ->money('UAH'),
+                        Infolists\Components\TextEntry::make('remaining_amount')
+                            ->label('Залишок')
+                            ->money('UAH')
+                            ->color(fn ($record) => $record->remaining_amount > 0 ? 'danger' : 'success'),
+                        Infolists\Components\TextEntry::make('payment_status')
+                            ->label('Статус оплати')
+                            ->formatStateUsing(fn ($state) => Order::PAYMENT_STATUSES[$state] ?? 'Невідомо')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'unpaid' => 'danger',
+                                'partial_paid' => 'warning',
+                                'paid' => 'success',
+                                'overpaid' => 'info',
+                            }),
+                    ])
+                    ->columns(2),
+
+            ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->orderBy('created_at', 'desc'))
+            ->searchable()
             ->columns([
                 Tables\Columns\TextColumn::make('order_number')
                     ->label('Номер замовлення')
                     ->sortable()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Створено')
+                    ->dateTime('d.m.Y H:i')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('member.username')
                     ->label('Нікнейм замовника')
-                    ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('member.full_name')
                     ->label('Імʼя замовника')
-                    ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('statusName')
                     ->label('Статус'),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Статус (пошук)')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Сума')
                     ->money('UAH')
@@ -406,6 +478,10 @@ class OrderResource extends Resource
                         'Telegram бот' => 'success',
                         default => 'gray',
                     }),
+                Tables\Columns\TextColumn::make('source')
+                    ->label('Джерело (пошук)')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('shipping_phone')
                     ->label('Телефон отримувача')
                     ->searchable(),
@@ -432,11 +508,6 @@ class OrderResource extends Resource
                     ->url(fn ($record) => $record->payment_receipt ? asset('storage/' . $record->payment_receipt) : null)
                     ->openUrlInNewTab()
                     ->visible(fn ($record) => !empty($record->payment_receipt)),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Створено')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('оновлено')
                     ->dateTime()

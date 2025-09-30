@@ -12,7 +12,7 @@ class TelegramOrderNotifier
     public function __construct()
     {
         $this->botToken = '7626235994:AAHhZOotdkoS5sH9orUTJcg7tZyMDc5OXws';
-        $this->chatId = '-1003024012905'; // Оновлений chat_id після оновлення до супергрупи
+        $this->chatId = '-1003024012905';
     }
 
     public function send(string $message): bool
@@ -23,13 +23,6 @@ class TelegramOrderNotifier
             'chat_id' => $this->chatId,
             'text' => $message,
             'parse_mode' => 'HTML',
-        ]);
-
-        // Логуємо відповідь для дебагу
-        \Log::info('TelegramOrderNotifier response', [
-            'status' => $response->status(),
-            'body' => $response->body(),
-            'successful' => $response->successful()
         ]);
 
         return $response->successful();
