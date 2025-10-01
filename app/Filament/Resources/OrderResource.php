@@ -225,7 +225,7 @@ class OrderResource extends Resource
                     ->nullable(),
                 Forms\Components\Section::make([
                     Forms\Components\TextInput::make('total_amount')
-                        ->label('До оплати')
+                        ->label('Загальна сума')
                         ->readOnly()
                         ->required()
                         ->numeric()
@@ -234,25 +234,22 @@ class OrderResource extends Resource
                         ->reactive(),
 
                     Forms\Components\TextInput::make('final_amount')
-                        ->label('Загальна сума')
+                        ->label('До оплати')
                         ->numeric()
                         ->readOnly()
                         ->default(0.00)
                         ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->reactive()
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                            // Коли встановлюється "загальна сума", перераховуємо знижку і записуємо ДО ОПЛАТИ (total_amount)
-                            $percent = floatval($get('discount_percent'));
-                            $discount = $state * ($percent / 100);
-                            $set('discount_amount', round($discount, 2));
-                            $set('total_amount', round($state - $discount, 2));
+                            // Коли встановлюється "До оплати", це фінальна сума після знижки
+                            // Не перераховуємо знижку тут, щоб не створювати конфлікт
                         })
                         ->afterStateHydrated(function (callable $set, callable $get) {
-                            // Після завантаження форми, встановлюємо final_amount на базі total + discount
+                            // Після завантаження форми, встановлюємо final_amount на базі total - discount
                             $total = floatval($get('total_amount'));
                             $percent = floatval($get('discount_percent'));
                             if ($percent > 0) {
-                                $final = $total / (1 - $percent / 100);
+                                $final = $total * (1 - $percent / 100); // Фінальна = загальна - знижка
                                 $set('final_amount', round($final, 2));
                             } else {
                                 $set('final_amount', $total);
@@ -267,11 +264,12 @@ class OrderResource extends Resource
                         ->reactive()
                         ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                            // Рахуємо знижку лише на основі final_amount
-                            $final = floatval($get('final_amount'));
-                            $discount = $final * ($state / 100);
+                            // Рахуємо знижку на основі total_amount
+                            $total = floatval($get('total_amount'));
+                            $discount = $total * ($state / 100);
+                            $final = $total - $discount;
                             $set('discount_amount', round($discount, 2));
-                            $set('total_amount', round($final - $discount, 2));
+                            $set('final_amount', round($final, 2));
                         }),
 
                     Forms\Components\TextInput::make('discount_amount')
@@ -282,9 +280,9 @@ class OrderResource extends Resource
                         ->disabled(fn (callable $get) => self::isProcessing($get))
                         ->reactive()
                         ->afterStateHydrated(function (callable $set, callable $get) {
-                            $final = floatval($get('final_amount'));
+                            $total = floatval($get('total_amount'));
                             $percent = floatval($get('discount_percent'));
-                            $discount = $final * ($percent / 100);
+                            $discount = $total * ($percent / 100);  // Рахуємо від total_amount, а не від final_amount
                             $set('discount_amount', round($discount, 2));
                         }),
                 ])

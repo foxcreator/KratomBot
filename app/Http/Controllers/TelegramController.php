@@ -234,24 +234,7 @@ class TelegramController extends Controller
                 'product_id' => $item->product_id,
                 'product_option_id' => $item->product_option_id,
                 'quantity' => $item->quantity,
-            ];
-        })->toArray();
-        $state['total'] = $member->cartItems->sum(function($item) {
-            return $item->quantity * ($item->productOption ? $item->productOption->price : $item->product->price);
-        });
-        $member->checkout_state = $state;
-        $member->save();
-
-
-
-
-        $state = $member->checkout_state ?? [];
-        $state['step'] = self::CHECKOUT_STATE['AWAIT_PAYMENT_TYPE'];
-        $state['cart_snapshot'] = $member->cartItems->map(function($item) {
-            return [
-                'product_id' => $item->product_id,
-                'product_option_id' => $item->product_option_id,
-                'quantity' => $item->quantity,
+                'price' => $item->productOption ? $item->productOption->price : $item->product->price,
             ];
         })->toArray();
         $state['total'] = $member->cartItems->sum(function($item) {
@@ -1429,8 +1412,12 @@ class TelegramController extends Controller
             'member_id' => $member->id,
             'status' => 'new',
             'total_amount' => $total,
+            'final_amount' => $totalWithDiscount,
+            'paid_amount' => $totalWithDiscount,  // Замовлення з бота оплачується одразу
+            'remaining_amount' => 0,              // Залишок = 0 (все оплачено)
+            'payment_status' => 'paid',           // Статус = оплачено
             'source' => 'bot',
-            'notes' => 'Замовлення з бота',
+            'notes' => 'Замовлення з бота (оплачено)',
             'payment_type' => $state['payment_type'] ?? $paymentType,
             'payment_receipt' => $state['payment_receipt'] ?? null,
             'shipping_phone' => $state['shipping_phone'] ?? null,
@@ -1438,7 +1425,7 @@ class TelegramController extends Controller
             'shipping_carrier' => $state['shipping_carrier'] ?? null,
             'shipping_office' => $state['shipping_office'] ?? null,
             'shipping_name' => $state['shipping_name'] ?? null,
-            'discount_percent' => $discountPercent,
+            'discount_percent' => $isSubscribed ? $discountPercent : 0,
             'discount_amount' => $discountAmount,
         ]);
         foreach ($cartSnapshot as $item) {
@@ -1447,7 +1434,7 @@ class TelegramController extends Controller
                 'product_id' => $item['product_id'],
                 'product_option_id' => $item['product_option_id'],
                 'quantity' => $item['quantity'],
-                'price' => $item['product_option_id'] ? ProductOption::find($item['product_option_id'])->price : Product::find($item['product_id'])->price,
+                'price' => $item['price'] ?? ($item['product_option_id'] ? ProductOption::find($item['product_option_id'])->price : Product::find($item['product_id'])->price),
             ]);
         }
 
@@ -1571,6 +1558,7 @@ class TelegramController extends Controller
             'product_id' => $product->id,
             'product_option_id' => null,
             'quantity' => 1,
+            'price' => $product->price,
         ]];
         $state['total'] = $product->price;
         $member->checkout_state = $state;
@@ -1616,6 +1604,7 @@ class TelegramController extends Controller
             'product_id' => $product->id,
             'product_option_id' => $option->id,
             'quantity' => 1,
+            'price' => $option->price,
         ]];
         $state['total'] = $option->price;
         $member->checkout_state = $state;
