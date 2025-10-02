@@ -86,6 +86,16 @@ class Order extends Model
     {
         parent::boot();
 
+        static::saving(function ($order) {
+            // Завжди перераховуємо remaining_amount при зміні суми або знижки
+            if (!is_null($order->total_amount)) {
+                // Використовуємо final_amount якщо є (з урахуванням знижки), інакше total_amount
+                $amountToPay = $order->final_amount ?? $order->total_amount;
+                $paid = $order->paid_amount ?? 0;
+                $order->remaining_amount = round(max(0, $amountToPay - $paid), 2); // Не може бути від'ємним
+            }
+        });
+
         static::created(function ($order) {
             if (empty($order->order_number)) {
                 $order->order_number = 'ORD-'. date('Ymd') . $order->id;
@@ -113,6 +123,13 @@ class Order extends Model
         });
 
         static::updated(function (Order $order) {
+            // Перераховуємо remaining_amount при зміні суми або знижки
+            if ($order->isDirty(['total_amount', 'final_amount', 'discount_percent', 'discount_amount'])) {
+                $amountToPay = $order->final_amount ?? $order->total_amount;
+                $paid = $order->paid_amount ?? 0;
+                $order->remaining_amount = round(max(0, $amountToPay - $paid), 2); // Не може бути від'ємним
+            }
+            
             if (
                 $order->isDirty('status') &&
                 $order->status === Order::STATUS_PROCESSING &&
@@ -236,17 +253,17 @@ class Order extends Model
     public function updateStatusBasedOnPayments(): void
     {
         if ($this->remaining_amount <= 0) {
-            $this->update([
+            $this->updateQuietly([
                 'status' => self::STATUS_PAID,
                 'payment_status' => self::PAYMENT_STATUS_PAID
             ]);
         } elseif ($this->paid_amount > 0) {
-            $this->update([
+            $this->updateQuietly([
                 'status' => self::STATUS_PARTIALLY_PAID,
                 'payment_status' => self::PAYMENT_STATUS_PARTIAL_PAID
             ]);
         } else {
-            $this->update([
+            $this->updateQuietly([
                 'status' => self::STATUS_PENDING_PAYMENT,
                 'payment_status' => self::PAYMENT_STATUS_UNPAID
             ]);
@@ -262,15 +279,63 @@ class Order extends Model
     public function updateDebtAccountTotals(): void
     {
         if ($this->debtAccount) {
-            // Використовуємо final_amount якщо є, інакше total_amount
-            $totalDebt = $this->debtAccount->orders()->sum(DB::raw('COALESCE(final_amount, total_amount)'));
+            // Рахуємо загальний борг з урахуванням знижок
+            $totalDebt = 0;
+            foreach ($this->debtAccount->orders as $order) {
+                if ($order->discount_percent > 0) {
+                    $totalDebt += $order->total_amount * (1 - $order->discount_percent / 100);
+                } else {
+                    $totalDebt += $order->total_amount;
+                }
+            }
+            
             $totalPaid = $this->debtAccount->payments()->sum('amount');
             
-            $this->debtAccount->update([
+            // Обмежуємо сплачену суму загальною сумою замовлень
+            $actualPaid = min($totalPaid, $totalDebt);
+            $remainingDebt = max(0, $totalDebt - $totalPaid);
+            
+            // Розраховуємо баланс (надлишок платежів)
+            $balance = max(0, $totalPaid - $totalDebt);
+            
+            // Визначаємо статус
+            $status = $remainingDebt <= 0 ? \App\Models\DebtAccount::STATUS_CLOSED : \App\Models\DebtAccount::STATUS_ACTIVE;
+            
+            $this->debtAccount->updateQuietly([
                 'total_debt' => $totalDebt,
-                'paid_amount' => $totalPaid,
-                'remaining_debt' => $totalDebt - $totalPaid,
+                'paid_amount' => $actualPaid,
+                'remaining_debt' => $remainingDebt,
+                'balance' => $balance,
+                'status' => $status,
             ]);
         }
+    }
+    
+    /**
+     * Оновлює фінансові показники замовлення на основі платежів
+     */
+    public function updateOrderFinancials(): void
+    {
+        // Рахуємо загальну суму всіх платежів для цього замовлення
+        $totalPaidForOrder = $this->payments()->sum('amount');
+        
+        // Визначаємо суму замовлення (з урахуванням знижки)
+        // Якщо є знижка, рахуємо final_amount, інакше використовуємо total_amount
+        if ($this->discount_percent > 0) {
+            $orderAmount = $this->total_amount * (1 - $this->discount_percent / 100);
+        } else {
+            $orderAmount = $this->total_amount;
+        }
+        
+        // Обмежуємо сплачену суму сумою замовлення
+        $actualPaidAmount = min($totalPaidForOrder, $orderAmount);
+        $remainingAmount = max(0, $orderAmount - $totalPaidForOrder);
+        
+        // Оновлюємо final_amount з урахуванням знижки
+        $this->updateQuietly([
+            'final_amount' => $orderAmount,
+            'paid_amount' => $actualPaidAmount,
+            'remaining_amount' => $remainingAmount,
+        ]);
     }
 }

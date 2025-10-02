@@ -254,6 +254,12 @@ class OrderResource extends Resource
                             } else {
                                 $set('final_amount', $total);
                             }
+                            
+                            // Оновлюємо remaining_amount з урахуванням переплати
+                            $paid = floatval($get('paid_amount') ?? 0);
+                            $finalAmount = floatval($get('final_amount') ?? $total);
+                            $remaining = max(0, $finalAmount - $paid); // Не може бути від'ємним
+                            $set('remaining_amount', round($remaining, 2));
                         })
                         ->dehydrated(false),
 
@@ -270,6 +276,11 @@ class OrderResource extends Resource
                             $final = $total - $discount;
                             $set('discount_amount', round($discount, 2));
                             $set('final_amount', round($final, 2));
+                            
+                            // Оновлюємо remaining_amount з урахуванням переплати
+                            $paid = floatval($get('paid_amount') ?? 0);
+                            $remaining = max(0, $final - $paid); // Не може бути від'ємним
+                            $set('remaining_amount', round($remaining, 2));
                         }),
 
                     Forms\Components\TextInput::make('discount_amount')
@@ -295,16 +306,89 @@ class OrderResource extends Resource
                             ->numeric()
                             ->prefix('₴')
                             ->default(0.00)
-                            ->disabled(true)
-                            ->helperText('Розраховується автоматично з платежів'),
+                            ->readOnly()
+                            ->live()
+                            ->helperText('Розраховується автоматично з платежів')
+                            ->afterStateHydrated(function (callable $set, callable $get, $record) {
+                                if ($record) {
+                                    // Рахуємо загальну суму всіх платежів для цього замовлення
+                                    $totalPaidForOrder = $record->payments()->sum('amount');
+                                    
+                                    // Визначаємо суму замовлення (з урахуванням знижки)
+                                    $orderAmount = $record->final_amount ?? $record->total_amount;
+                                    
+                                    // Обмежуємо сплачену суму сумою замовлення
+                                    $actualPaidAmount = min($totalPaidForOrder, $orderAmount);
+                                    
+                                    $set('paid_amount', $actualPaidAmount);
+                                }
+                            })
+                            ->formatStateUsing(function ($state, $record) {
+                                if (!$record) return $state;
+                                
+                                // Рахуємо загальну суму всіх платежів для цього замовлення
+                                $totalPaidForOrder = $record->payments()->sum('amount');
+                                
+                                // Визначаємо суму замовлення (з урахуванням знижки)
+                                if ($record->discount_percent > 0) {
+                                    $orderAmount = $record->total_amount * (1 - $record->discount_percent / 100);
+                                } else {
+                                    $orderAmount = $record->total_amount;
+                                }
+                                
+                                // Обмежуємо сплачену суму сумою замовлення
+                                return min($totalPaidForOrder, $orderAmount);
+                            })
+                            ->afterStateUpdated(function (callable $set, callable $get) {
+                                // Оновлюємо remaining_amount при зміні paid_amount
+                                $finalAmount = floatval($get('final_amount') ?? $get('total_amount'));
+                                $paid = floatval($get('paid_amount') ?? 0);
+                                $remaining = max(0, $finalAmount - $paid);
+                                $set('remaining_amount', round($remaining, 2));
+                            }),
 
                         Forms\Components\TextInput::make('remaining_amount')
                             ->label('Залишок до сплати')
                             ->numeric()
                             ->prefix('₴')
                             ->readOnly()
+                            ->live()
                             ->default(0.00)
-                            ->helperText('Розраховується автоматично'),
+                            ->helperText('Розраховується автоматично')
+                            ->afterStateHydrated(function (callable $set, callable $get, $record) {
+                                if ($record) {
+                                    // Рахуємо загальну суму всіх платежів для цього замовлення
+                                    $totalPaidForOrder = $record->payments()->sum('amount');
+                                    
+                                    // Визначаємо суму замовлення (з урахуванням знижки)
+                                    $orderAmount = $record->final_amount ?? $record->total_amount;
+                                    
+                                    // Обмежуємо сплачену суму сумою замовлення
+                                    $actualPaidAmount = min($totalPaidForOrder, $orderAmount);
+                                    $remainingAmount = max(0, $orderAmount - $totalPaidForOrder);
+                                    
+                                    $set('remaining_amount', $remainingAmount);
+                                }
+                            })
+                            ->formatStateUsing(function ($state, $record) {
+                                if (!$record) return $state;
+                                
+                                // Рахуємо загальну суму всіх платежів для цього замовлення
+                                $totalPaidForOrder = $record->payments()->sum('amount');
+                                
+                                // Визначаємо суму замовлення (з урахуванням знижки)
+                                if ($record->discount_percent > 0) {
+                                    $orderAmount = $record->total_amount * (1 - $record->discount_percent / 100);
+                                } else {
+                                    $orderAmount = $record->total_amount;
+                                }
+                                
+                                // Обмежуємо сплачену суму сумою замовлення
+                                $actualPaidAmount = min($totalPaidForOrder, $orderAmount);
+                                $remainingAmount = max(0, $orderAmount - $totalPaidForOrder);
+                                
+                                return $remainingAmount;
+                            }),
 
                         Forms\Components\TextInput::make('payment_status')
                             ->label('Статус оплати')
@@ -439,6 +523,12 @@ class OrderResource extends Resource
                     ->label('Імʼя замовника')
                     ->sortable()
                     ->searchable(),
+
+                Tables\Columns\TextColumn::make('debtAccount.balance')
+                    ->label('Баланс клієнта')
+                    ->money('UAH')
+                    ->sortable()
+                    ->color(fn ($state) => $state > 0 ? 'success' : ($state < 0 ? 'danger' : 'gray')),
                 Tables\Columns\TextColumn::make('statusName')
                     ->label('Статус'),
                 Tables\Columns\TextColumn::make('status')

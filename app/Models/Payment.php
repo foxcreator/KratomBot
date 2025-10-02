@@ -50,21 +50,30 @@ class Payment extends Model
         static::created(function ($payment) {
             // Оновлюємо заборгованість при створенні платежу
             if ($payment->debt_account_id) {
-                $payment->updateDebtAccount();
+                // Для списання з балансу не оновлюємо DebtAccount автоматично
+                if ($payment->payment_method !== self::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                    $payment->updateDebtAccount();
+                }
             }
         });
 
         static::updated(function ($payment) {
             // Оновлюємо заборгованість при зміні платежу
             if ($payment->debt_account_id && $payment->isDirty(['amount', 'debt_account_id', 'order_id'])) {
-                $oldAmount = $payment->getOriginal('amount');
-                $payment->updateDebtAccount(false, $oldAmount);
+                // Для списання з балансу не оновлюємо DebtAccount автоматично
+                if ($payment->payment_method !== self::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                    $oldAmount = $payment->getOriginal('amount');
+                    $payment->updateDebtAccount(false, $oldAmount);
+                }
             }
         });
 
         static::deleted(function ($payment) {
             // Відновлюємо заборгованість при видаленні платежу
-            $payment->updateDebtAccount(true);
+            // Для списання з балансу не оновлюємо DebtAccount автоматично
+            if ($payment->payment_method !== self::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                $payment->updateDebtAccount(true);
+            }
         });
     }
 
@@ -130,20 +139,19 @@ class Payment extends Model
             $amount = $this->amount;
         }
 
-        // Оновлюємо заборгованість
-        $this->debtAccount->increment('paid_amount', $amount);
-        $this->debtAccount->decrement('remaining_debt', $amount);
-
-        // Розраховуємо новий баланс
-        $newBalance = $this->debtAccount->paid_amount - $this->debtAccount->total_debt;
-        $this->debtAccount->update(['balance' => $newBalance]);
-
-        // Оновлюємо статус
-        if ($this->debtAccount->remaining_debt <= 0) {
-            $this->debtAccount->update(['status' => DebtAccount::STATUS_CLOSED]);
-        } else {
-            $this->debtAccount->update(['status' => DebtAccount::STATUS_ACTIVE]);
-        }
+        // Оновлюємо заборгованість без тригеру observers
+        $newPaidAmount = $this->debtAccount->paid_amount + $amount;
+        $newRemainingDebt = $this->debtAccount->remaining_debt - $amount;
+        $newBalance = $newPaidAmount - $this->debtAccount->total_debt;
+        
+        $status = $newRemainingDebt <= 0 ? DebtAccount::STATUS_CLOSED : DebtAccount::STATUS_ACTIVE;
+        
+        $this->debtAccount->updateQuietly([
+            'paid_amount' => $newPaidAmount,
+            'remaining_debt' => $newRemainingDebt,
+            'balance' => $newBalance,
+            'status' => $status,
+        ]);
 
         // Оновлюємо замовлення якщо вказано
         if ($this->order_id) {
