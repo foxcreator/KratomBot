@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\DebtAccount;
 use App\Models\PaymentType;
 use App\Models\CashRegister;
+use App\Models\Order;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -90,20 +91,40 @@ class PaymentResource extends Resource
                     ->label('Сума платежу')
                     ->numeric()
                     ->prefix('₴')
-                    ->required(),
+                    ->required()
+                    ->live()
+                ->afterStateUpdated(function ($state, callable $set, $get) {
+                    // Перевіряємо баланс при зміні суми
+                    static::validateBalance($state ? (float) $state : null, $get('payment_method'), $get('debt_account_id'), $set);
+                }),
 
                 Forms\Components\Select::make('payment_method')
                     ->label('Спосіб платежу')
                     ->options(Payment::PAYMENT_METHODS)
                     ->default(Payment::PAYMENT_METHOD_CASH)
                     ->required()
-                    ->reactive()
+                    ->live()
+                ->afterStateUpdated(function ($state, callable $set, $get) {
+                    // Перевіряємо баланс при зміні методу оплати
+                    $amount = $get('amount');
+                    static::validateBalance($amount ? (float) $amount : null, $state, $get('debt_account_id'), $set);
+                    
+                    // Очищаємо поля при виборі списання з балансу
+                    if ($state === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                        $set('payment_type_id', null);
+                        $set('cash_register_id', null);
+                    }
+                })
                     ->helperText('Готівка/Переказ - внесення коштів, Списання з балансу - списання з рахунку клієнта'),
 
                 Forms\Components\Select::make('payment_type_id')
                     ->label('Тип оплати')
                     ->relationship('paymentType', 'name')
-                    ->required()
+                    ->required(fn ($get) => $get('payment_method') !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION)
+                    ->disabled(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION)
+                    ->helperText(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION 
+                        ? 'Не потрібно при списанні з балансу' 
+                        : 'Оберіть тип оплати')
                     ->reactive()
                     ->afterStateUpdated(function ($state, callable $set) {
                         // Очищуємо вибір каси при зміні типу оплати
@@ -122,7 +143,11 @@ class PaymentResource extends Resource
                             ->get()
                             ->pluck('name', 'id');
                     })
-                    ->required()
+                    ->required(fn ($get) => $get('payment_method') !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION)
+                    ->disabled(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION)
+                    ->helperText(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION 
+                        ? 'Не потрібно при списанні з балансу' 
+                        : 'Оберіть касу для обраного типу оплати')
                     ->searchable()
                     ->placeholder('Оберіть касу для обраного типу оплати'),
 
@@ -152,6 +177,33 @@ class PaymentResource extends Resource
                 Forms\Components\Textarea::make('notes')
                     ->label('Нотатки')
                     ->columnSpanFull(),
+
+                // Інформаційний блок з балансом
+                Forms\Components\Placeholder::make('balance_info')
+                    ->label('Баланс клієнта')
+                    ->content(function (callable $get) {
+                        $debtAccountId = $get('debt_account_id');
+                        if (!$debtAccountId) {
+                            return 'Оберіть рахунок заборгованості для перегляду балансу';
+                        }
+                        
+                        $debtAccount = \App\Models\DebtAccount::find($debtAccountId);
+                        if (!$debtAccount) {
+                            return 'Рахунок не знайдено';
+                        }
+                        
+                        $balance = $debtAccount->balance ?? 0;
+                        return number_format($balance, 2) . ' ₴';
+                    })
+                    ->visible(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION),
+
+                // Поле для відображення помилки балансу
+                Forms\Components\TextInput::make('balance_error')
+                    ->label('')
+                    ->disabled()
+                    ->visible(fn ($get) => !empty($get('balance_error')))
+                    ->extraAttributes(['class' => 'text-red-600 font-medium'])
+                    ->formatStateUsing(fn ($get) => $get('balance_error')),
             ]);
     }
 
@@ -255,5 +307,67 @@ class PaymentResource extends Resource
             'create' => Pages\CreatePayment::route('/create'),
             'edit' => Pages\EditPayment::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Валідує баланс при списанні
+     */
+    public static function validateBalance(?float $amount, ?string $paymentMethod, ?int $debtAccountId, callable $set): void
+    {
+        if ($paymentMethod !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION || !$amount || !$debtAccountId) {
+            $set('balance_error', null);
+            return;
+        }
+
+        $debtAccount = DebtAccount::find($debtAccountId);
+        if (!$debtAccount) {
+            $set('balance_error', 'Рахунок заборгованості не знайдено');
+            return;
+        }
+
+        $balance = $debtAccount->balance ?? 0;
+
+        if ($amount > $balance) {
+            $set('balance_error', "Недостатньо коштів на балансі. Доступно: " . number_format($balance, 2) . " ₴");
+        } else {
+            $set('balance_error', null);
+        }
+    }
+
+    /**
+     * Перевіряє достатність балансу для списання
+     */
+    public static function hasSufficientBalance(float $amount, int $debtAccountId): bool
+    {
+        $debtAccount = DebtAccount::find($debtAccountId);
+        if (!$debtAccount) {
+            return false;
+        }
+        
+        $balance = $debtAccount->balance ?? 0;
+        return $amount <= $balance;
+    }
+
+    /**
+     * Оновлює тільки статус замовлення без оновлення DebtAccount
+     */
+    public static function updateOrderStatusOnly(\App\Models\Order $order): void
+    {
+        if ($order->remaining_amount <= 0) {
+            $order->updateQuietly([
+                'status' => \App\Models\Order::STATUS_PAID,
+                'payment_status' => \App\Models\Order::PAYMENT_STATUS_PAID
+            ]);
+        } elseif ($order->paid_amount > 0) {
+            $order->updateQuietly([
+                'status' => \App\Models\Order::STATUS_PARTIALLY_PAID,
+                'payment_status' => \App\Models\Order::PAYMENT_STATUS_PARTIAL_PAID
+            ]);
+        } else {
+            $order->updateQuietly([
+                'status' => \App\Models\Order::STATUS_PENDING_PAYMENT,
+                'payment_status' => \App\Models\Order::PAYMENT_STATUS_UNPAID
+            ]);
+        }
     }
 }

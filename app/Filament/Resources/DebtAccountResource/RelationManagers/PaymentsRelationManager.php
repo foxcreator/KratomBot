@@ -7,6 +7,11 @@ use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use App\Models\Payment;
+use App\Models\PaymentType;
+use App\Models\CashRegister;
+use App\Models\Order;
+use Filament\Notifications\Notification;
 
 class PaymentsRelationManager extends RelationManager
 {
@@ -22,17 +27,48 @@ class PaymentsRelationManager extends RelationManager
                 ->label('Сума платежу')
                 ->numeric()
                 ->prefix('₴')
-                ->required(),
+                ->required()
+                ->live()
+                ->afterStateUpdated(function ($state, callable $set, $get) {
+                    // Перевіряємо баланс при зміні суми
+                    $this->validateBalance($state ? (float) $state : null, $get('payment_method'), $set);
+                }),
+
+            Forms\Components\Select::make('payment_method')
+                ->label('Метод оплати')
+                ->options(Payment::PAYMENT_METHODS)
+                ->default(Payment::PAYMENT_METHOD_CASH)
+                ->required()
+                ->live()
+                ->afterStateUpdated(function ($state, callable $set, $get) {
+                    // Перевіряємо баланс при зміні методу оплати
+                    $amount = $get('amount');
+                    $this->validateBalance($amount ? (float) $amount : null, $state, $set);
+                    
+                    // Очищаємо поля при виборі списання з балансу
+                    if ($state === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                        $set('payment_type_id', null);
+                        $set('cash_register_id', null);
+                    }
+                }),
 
             Forms\Components\Select::make('payment_type_id')
                 ->label('Тип оплати')
                 ->relationship('paymentType', 'name')
-                ->required(),
+                ->required(fn ($get) => $get('payment_method') !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION)
+                ->disabled(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION)
+                ->helperText(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION 
+                    ? 'Не потрібно при списанні з балансу' 
+                    : 'Оберіть тип оплати'),
 
             Forms\Components\Select::make('cash_register_id')
                 ->label('Каса')
                 ->relationship('cashRegister', 'name')
-                ->required(),
+                ->required(fn ($get) => $get('payment_method') !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION)
+                ->disabled(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION)
+                ->helperText(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION 
+                    ? 'Не потрібно при списанні з балансу' 
+                    : 'Оберіть касу'),
 
             Forms\Components\DatePicker::make('payment_date')
                 ->label('Дата платежу')
@@ -46,6 +82,24 @@ class PaymentsRelationManager extends RelationManager
             Forms\Components\Textarea::make('notes')
                 ->label('Нотатки')
                 ->columnSpanFull(),
+
+            // Інформаційний блок з балансом
+            Forms\Components\Placeholder::make('balance_info')
+                ->label('Баланс клієнта')
+                ->content(function () {
+                    $debtAccount = $this->getOwnerRecord();
+                    $balance = $debtAccount?->balance ?? 0;
+                    return number_format($balance, 2) . ' ₴';
+                })
+                ->visible(fn ($get) => $get('payment_method') === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION),
+
+            // Поле для відображення помилки балансу
+            Forms\Components\TextInput::make('balance_error')
+                ->label('')
+                ->disabled()
+                ->visible(fn ($get) => !empty($get('balance_error')))
+                ->extraAttributes(['class' => 'text-red-600 font-medium'])
+                ->formatStateUsing(fn ($get) => $get('balance_error')),
         ]);
     }
 
@@ -58,11 +112,17 @@ class PaymentsRelationManager extends RelationManager
                     ->money('UAH')
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('payment_method')
+                    ->label('Метод оплати')
+                    ->formatStateUsing(fn (string $state): string => Payment::PAYMENT_METHODS[$state] ?? $state),
+
                 Tables\Columns\TextColumn::make('paymentType.name')
-                    ->label('Тип оплати'),
+                    ->label('Тип оплати')
+                    ->placeholder('—'),
 
                 Tables\Columns\TextColumn::make('cashRegister.name')
-                    ->label('Каса'),
+                    ->label('Каса')
+                    ->placeholder('—'),
 
                 Tables\Columns\TextColumn::make('payment_date')
                     ->label('Дата платежу')
@@ -82,23 +142,203 @@ class PaymentsRelationManager extends RelationManager
             ->headerActions([
                 Tables\Actions\CreateAction::make()
                     ->label('Додати платіж')
-                    ->after(function () {
-                        $this->redirect(request()->header('Referer'));
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['debt_account_id'] = $this->getOwnerRecord()->id;
+                        return $data;
+                    })
+                    ->before(function (array $data): void {
+                        // Перевіряємо достатність балансу перед створенням платежу
+                        if (isset($data['payment_method']) && 
+                            $data['payment_method'] === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                            
+                            if (!$this->hasSufficientBalance($data['amount'])) {
+                                $debtAccount = $this->getOwnerRecord();
+                                $balance = $debtAccount?->balance ?? 0;
+                                
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Недостатньо коштів на балансі')
+                                    ->body("На балансі доступно: " . number_format($balance, 2) . " ₴")
+                                    ->send();
+                                
+                                $this->halt();
+                            }
+                        }
+                    })
+                    ->after(function (Payment $record): void {
+                        // Оновлюємо фінансові показники замовлення
+                        if ($record->order_id) {
+                            $order = $record->order;
+                            $order->updateOrderFinancials();
+                            
+                            // Якщо платіж з балансу - списуємо з балансу
+                            if ($record->payment_method === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                                $record->debtAccount?->decrement('balance', $record->amount);
+                                // Для списання з балансу оновлюємо тільки статус замовлення без DebtAccount
+                                $this->updateOrderStatusOnly($order);
+                            } else {
+                                // Для зовнішніх платежів оновлюємо все
+                                $order->updateDebtAccountTotals();
+                                $order->updateStatusBasedOnPayments();
+                            }
+                        }
+                        
+                        $methodText = $record->payment_method === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION 
+                            ? 'з балансу клієнта' 
+                            : 'до системи';
+                            
+                        Notification::make()
+                            ->success()
+                            ->title('Платіж створено')
+                            ->body("Платіж успішно створено {$methodText}")
+                            ->send();
                     }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->after(function () {
-                        $this->redirect(request()->header('Referer'));
+                    ->before(function (array $data): void {
+                        // Перевіряємо достатність балансу при зміні на списання з балансу
+                        if (isset($data['payment_method']) && 
+                            $data['payment_method'] === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                            
+                            if (!$this->hasSufficientBalance($data['amount'])) {
+                                $debtAccount = $this->getOwnerRecord();
+                                $balance = $debtAccount?->balance ?? 0;
+                                
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Недостатньо коштів на балансі')
+                                    ->body("На балансі доступно: " . number_format($balance, 2) . " ₴")
+                                    ->send();
+                                
+                                $this->halt();
+                            }
+                        }
+                    })
+                    ->after(function (Payment $record): void {
+                        // Оновлюємо фінансові показники замовлення
+                        if ($record->order_id) {
+                            $order = $record->order;
+                            $order->updateOrderFinancials();
+                            
+                            // Обробляємо зміни в методі оплати
+                            $originalMethod = $record->getOriginal('payment_method');
+                            $newMethod = $record->payment_method;
+                            
+                            // Якщо змінили з готівки на баланс - списуємо з балансу
+                            if ($originalMethod !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION && 
+                                $newMethod === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                                $record->debtAccount?->decrement('balance', $record->amount);
+                                $this->updateOrderStatusOnly($order);
+                            }
+                            // Якщо змінили з балансу на готівку - повертаємо на баланс
+                            elseif ($originalMethod === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION && 
+                                    $newMethod !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                                $record->debtAccount?->increment('balance', $record->amount);
+                                // Для зовнішніх платежів оновлюємо все
+                                $order->updateDebtAccountTotals();
+                                $order->updateStatusBasedOnPayments();
+                            }
+                            // Якщо залишилися на балансі - оновлюємо тільки статус
+                            elseif ($newMethod === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                                $this->updateOrderStatusOnly($order);
+                            }
+                            // Якщо залишилися на готівці - оновлюємо все
+                            else {
+                                $order->updateDebtAccountTotals();
+                                $order->updateStatusBasedOnPayments();
+                            }
+                        }
+                        
+                        Notification::make()
+                            ->success()
+                            ->title('Платіж оновлено')
+                            ->body('Платіж успішно оновлено')
+                            ->send();
                     }),
                 Tables\Actions\DeleteAction::make()
-                    ->after(function () {
-                        $this->redirect(request()->header('Referer'));
+                    ->before(function (Payment $record): void {
+                        // Якщо видаляємо платіж з балансу - повертаємо кошти на баланс
+                        if ($record->payment_method === Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                            $record->debtAccount?->increment('balance', $record->amount);
+                        }
+                    })
+                    ->after(function (Payment $record): void {
+                        // Оновлюємо фінансові показники замовлення
+                        if ($record->order_id) {
+                            $order = $record->order;
+                            $order->updateOrderFinancials();
+                            
+                            // Якщо не був платіж з балансу - оновлюємо все
+                            if ($record->payment_method !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION) {
+                                $order->updateDebtAccountTotals();
+                            }
+                            $order->updateStatusBasedOnPayments();
+                        }
+                        
+                        Notification::make()
+                            ->success()
+                            ->title('Платіж видалено')
+                            ->body('Платіж успішно видалено')
+                            ->send();
                     }),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
             ])
             ->defaultSort('payment_date', 'desc');
+    }
+
+    /**
+     * Валідує баланс при списанні
+     */
+    private function validateBalance(?float $amount, ?string $paymentMethod, callable $set): void
+    {
+        if ($paymentMethod !== Payment::PAYMENT_METHOD_BALANCE_DEDUCTION || !$amount) {
+            $set('balance_error', null);
+            return;
+        }
+
+        $debtAccount = $this->getOwnerRecord();
+        $balance = $debtAccount?->balance ?? 0;
+
+        if ($amount > $balance) {
+            $set('balance_error', "Недостатньо коштів на балансі. Доступно: " . number_format($balance, 2) . " ₴");
+        } else {
+            $set('balance_error', null);
+        }
+    }
+
+    /**
+     * Перевіряє достатність балансу для списання
+     */
+    private function hasSufficientBalance(float $amount): bool
+    {
+        $debtAccount = $this->getOwnerRecord();
+        $balance = $debtAccount?->balance ?? 0;
+        return $amount <= $balance;
+    }
+
+    /**
+     * Оновлює тільки статус замовлення без оновлення DebtAccount
+     */
+    private function updateOrderStatusOnly(Order $order): void
+    {
+        if ($order->remaining_amount <= 0) {
+            $order->updateQuietly([
+                'status' => Order::STATUS_PAID,
+                'payment_status' => Order::PAYMENT_STATUS_PAID
+            ]);
+        } elseif ($order->paid_amount > 0) {
+            $order->updateQuietly([
+                'status' => Order::STATUS_PARTIALLY_PAID,
+                'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID
+            ]);
+        } else {
+            $order->updateQuietly([
+                'status' => Order::STATUS_PENDING_PAYMENT,
+                'payment_status' => Order::PAYMENT_STATUS_UNPAID
+            ]);
+        }
     }
 }
