@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Settings\TelegramSetting;
+use App\Settings\TelegramSettings;
 use Filament\Forms;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +19,7 @@ class ManageTelegram extends SettingsPage
     protected static ?int $navigationSort = 15;
 
 
-    protected static string $settings = TelegramSetting::class;
+    protected static string $settings = TelegramSettings::class;
 
     public function form(Form $form): Form
     {

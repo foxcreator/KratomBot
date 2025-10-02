@@ -8,7 +8,7 @@ use App\Models\Setting;
 use App\Models\Product;
 use App\Models\CartItem;
 use App\Models\OrderItem;
-use App\Settings\TelegramSetting;
+use App\Settings\TelegramSettings;
 use Illuminate\Support\Facades\Log;
 use Telegram\Bot\FileUpload\InputFile;
 use Telegram\Bot\Api;
@@ -39,7 +39,7 @@ class TelegramController extends Controller
     public function __construct()
     {
         $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
-        $this->settings = app(TelegramSetting::class);
+        $this->settings = app(TelegramSettings::class);
     }
 
     public function setWebhook()

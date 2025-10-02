@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Settings\TelegramSetting;
+use App\Settings\TelegramSettings;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,7 +16,7 @@ class MigrateTelegramSettings extends Command
     {
         $oldSettings = DB::table('settings_old')->pluck('value', 'key')->toArray();
 
-        $settings = app(TelegramSetting::class);
+        $settings = app(TelegramSettings::class);
 
         $migrated = [];
 

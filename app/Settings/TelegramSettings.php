@@ -4,7 +4,7 @@ namespace App\Settings;
 
 use Spatie\LaravelSettings\Settings;
 
-class TelegramSetting extends Settings
+class TelegramSettings extends Settings
 {
     public string $hello_message;
     public string $channel;
