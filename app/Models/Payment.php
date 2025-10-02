@@ -54,6 +54,14 @@ class Payment extends Model
             }
         });
 
+        static::updated(function ($payment) {
+            // Оновлюємо заборгованість при зміні платежу
+            if ($payment->debt_account_id && $payment->isDirty(['amount', 'debt_account_id', 'order_id'])) {
+                $oldAmount = $payment->getOriginal('amount');
+                $payment->updateDebtAccount(false, $oldAmount);
+            }
+        });
+
         static::deleted(function ($payment) {
             // Відновлюємо заборгованість при видаленні платежу
             $payment->updateDebtAccount(true);
@@ -103,15 +111,24 @@ class Payment extends Model
     }
 
     /**
-     * Оновлює заборгованість при створенні/видаленні платежу
+     * Оновлює заборгованість при створенні/видаленні/зміні платежу
      */
-    public function updateDebtAccount(bool $isDeletion = false): void
+    public function updateDebtAccount(bool $isDeletion = false, ?float $oldAmount = null): void
     {
         if (!$this->debt_account_id || !$this->debtAccount) {
             return;
         }
 
-        $amount = $isDeletion ? -$this->amount : $this->amount;
+        if ($isDeletion) {
+            // При видаленні - віднімаємо суму
+            $amount = -$this->amount;
+        } elseif ($oldAmount !== null) {
+            // При редагуванні - розраховуємо різницю
+            $amount = $this->amount - $oldAmount;
+        } else {
+            // При створенні - додаємо суму
+            $amount = $this->amount;
+        }
 
         // Оновлюємо заборгованість
         $this->debtAccount->increment('paid_amount', $amount);
@@ -136,22 +153,7 @@ class Payment extends Model
                 $order->decrement('remaining_amount', $amount);
 
                 // Оновлюємо статус замовлення
-                if ($order->remaining_amount <= 0) {
-                    $order->update([
-                        'payment_status' => Order::PAYMENT_STATUS_PAID,
-                        'status' => Order::STATUS_PAID
-                    ]);
-                } elseif ($order->paid_amount > 0) {
-                    $order->update([
-                        'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID,
-                        'status' => Order::STATUS_PARTIALLY_PAID
-                    ]);
-                } else {
-                    $order->update([
-                        'payment_status' => Order::PAYMENT_STATUS_UNPAID,
-                        'status' => Order::STATUS_PENDING_PAYMENT
-                    ]);
-                }
+                $order->updateStatusBasedOnPayments();
             }
         } else {
             // Якщо платіж без замовлення - розподіляємо по замовленнях клієнта
@@ -187,22 +189,7 @@ class Payment extends Model
             $order->decrement('remaining_amount', $paymentAmount);
 
             // Оновлюємо статус замовлення
-            if ($order->remaining_amount <= 0) {
-                $order->update([
-                    'payment_status' => Order::PAYMENT_STATUS_PAID,
-                    'status' => Order::STATUS_PAID
-                ]);
-            } elseif ($order->paid_amount > 0) {
-                $order->update([
-                    'payment_status' => Order::PAYMENT_STATUS_PARTIAL_PAID,
-                    'status' => Order::STATUS_PARTIALLY_PAID
-                ]);
-            } else {
-                $order->update([
-                    'payment_status' => Order::PAYMENT_STATUS_UNPAID,
-                    'status' => Order::STATUS_PENDING_PAYMENT
-                ]);
-            }
+            $order->updateStatusBasedOnPayments();
 
             $remainingAmount -= $paymentAmount;
         }

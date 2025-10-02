@@ -22,6 +22,7 @@ class Order extends Model
         'remaining_amount',
         'payment_status',
         'payment_type',
+        'payment_method_id',
         'payment_receipt',
         'notes',
         'source',
@@ -115,16 +116,29 @@ class Order extends Model
             if (
                 $order->isDirty('status') &&
                 $order->status === Order::STATUS_PROCESSING &&
-                $order->cash_register_id &&
                 $order->total_amount > 0
             ) {
-                $cashRegister = $order->cashRegister;
-                $cashRegister->increment('balance', (float) $order->total_amount);
+                // Нараховуємо на касу через payment_method або напряму через cash_register_id
+                $cashRegister = null;
+                if ($order->payment_method_id && $order->paymentMethod && $order->paymentMethod->cashRegister) {
+                    $cashRegister = $order->paymentMethod->cashRegister;
+                } elseif ($order->cash_register_id) {
+                    $cashRegister = $order->cashRegister;
+                }
+                
+                if ($cashRegister) {
+                    $cashRegister->increment('balance', (float) $order->total_amount);
+                }
             }
             
             // Оновлюємо DebtAccount при зміні суми замовлення
             if ($order->isDirty(['total_amount', 'final_amount', 'paid_amount', 'remaining_amount'])) {
                 $order->updateDebtAccountTotals();
+            }
+            
+            // Оновлюємо статус замовлення на основі платежів
+            if ($order->isDirty(['paid_amount', 'remaining_amount'])) {
+                $order->updateStatusBasedOnPayments();
             }
         });
     }
@@ -159,6 +173,11 @@ class Order extends Model
     public function paymentType()
     {
         return $this->belongsTo(PaymentType::class);
+    }
+
+    public function paymentMethod()
+    {
+        return $this->belongsTo(PaymentMethod::class);
     }
 
     public function cashRegister()

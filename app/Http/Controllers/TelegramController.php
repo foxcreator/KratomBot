@@ -17,6 +17,7 @@ use App\Models\Order;
 use App\Models\Brand;
 use App\Models\ProductOption;
 use App\Models\Subcategory;
+use App\Models\PaymentMethod;
 
 class TelegramController extends Controller
 {
@@ -213,17 +214,27 @@ class TelegramController extends Controller
             return;
         }
 
+        // Отримуємо активні варіанти оплати
+        $paymentMethods = PaymentMethod::active()->get();
+        
+        $keyboard = [];
+        foreach ($paymentMethods as $method) {
+            $keyboard[] = [['text' => $method->name, 'callback_data' => 'pay_method_' . $method->id]];
+        }
+        
+        // Додаємо накладений платіж тільки для нових клієнтів
         $hasOrders = Order::where('member_id', $member->id)->exists();
-        $keyboard = [
-            [['text' => '💳 Передплата', 'callback_data' => 'pay_type_prepaid']],
-        ];
         if (!$hasOrders) {
             $keyboard[] = [['text' => '🚚 Накладений платіж', 'callback_data' => 'pay_type_cod']];
         }
+        
         $keyboard[] = [['text' => '⬅️ Назад до кошика', 'callback_data' => 'back_to_cart']];
+        
+        $messageText = "Оберіть спосіб оплати:";
+        
         $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
-            'text' => "Оберіть спосіб оплати:\n\n<b>Передплата</b> — оплата на картку, після чого ви надсилаєте фото квитанції.\n<b>Накладений платіж</b> — оплата при отриманні (доступно лише для першого замовлення).",
+            'text' => $messageText,
             'parse_mode' => 'HTML',
             'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
         ]);
@@ -1122,6 +1133,10 @@ class TelegramController extends Controller
                 $this->sendMainMenu($chatId);
             }
             return;
+        } elseif (str_starts_with($data, 'pay_method_')) {
+            $paymentMethodId = (int)str_replace('pay_method_', '', $data);
+            $this->startPaymentMethodCheckout($chatId, $paymentMethodId);
+            return;
         } elseif ($data === 'pay_type_prepaid') {
             $this->startPrepaidCheckout($chatId);
             return;
@@ -1341,6 +1356,61 @@ class TelegramController extends Controller
         }
     }
 
+    private function startPaymentMethodCheckout($chatId, $paymentMethodId)
+    {
+        $member = Member::where('telegram_id', $chatId)->first();
+        $paymentMethod = PaymentMethod::find($paymentMethodId);
+        
+        if (!$paymentMethod || !$paymentMethod->is_active) {
+            Telegram::answerCallbackQuery([
+                'callback_query_id' => $this->getCallbackQueryId(),
+                'text' => 'Варіант оплати не знайдено або неактивний'
+            ]);
+            return;
+        }
+        
+        $state = $member->checkout_state ?? [];
+        $state['step'] = self::CHECKOUT_STATE['AWAIT_RECEIPT_PHOTO'];
+        $state['payment_type'] = 'prepaid';
+        $state['payment_method_id'] = $paymentMethodId;
+        $member->checkout_state = $state;
+        $member->save();
+        
+        // Отримуємо реквізити з методу оплати
+        $requisites = $paymentMethod->payment_details ?? 'Реквізити для оплати: ...';
+        $requisites = $this->formatCodeBlocks($requisites);
+
+        $total = $state['total'] ?? 0;
+        $discountPercent = isset($this->settings->telegram_channel_discount) ? (float)$this->settings->telegram_channel_discount : 0;
+        $isSubscribed = $this->isUserSubscribedToChannel($chatId);
+
+        if ($isSubscribed && $discountPercent > 0) {
+            $discountAmount = round($total * $discountPercent / 100, 2);
+            $totalWithDiscount = $total - $discountAmount;
+            $totalText = "\n💸 <b>Сума до оплати зі знижкою:</b> <b>" . number_format($totalWithDiscount, 2) . " грн</b> (знижка {$discountPercent}% -{$discountAmount} грн)\n";
+        } else {
+            $totalText = "\n💸 <b>Сума до оплати:</b> <b>" . number_format($total, 2) . " грн</b>\n";
+        }
+        
+        $this->removeMainKeyboard($chatId);
+        $keyboard = [
+            [['text' => '⬅️ Назад до вибору оплати', 'callback_data' => 'back_to_payment_selection']]
+        ];
+        
+        $messageText = "<b>Оплата замовлення</b>\n\n";
+        $messageText .= "<b>Спосіб оплати:</b> {$paymentMethod->name}\n";
+        $messageText .= $totalText;
+        $messageText .= $requisites;
+        $messageText .= "\n\nПісля оплати надішліть фото квитанції у цей чат.";
+        
+        $this->sendMessageWithCleanup($chatId, $member, [
+            'chat_id' => $chatId,
+            'text' => $messageText,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+    }
+
     private function startPrepaidCheckout($chatId)
     {
         $member = Member::where('telegram_id', $chatId)->first();
@@ -1419,6 +1489,7 @@ class TelegramController extends Controller
             'source' => 'bot',
             'notes' => 'Замовлення з бота (оплачено)',
             'payment_type' => $state['payment_type'] ?? $paymentType,
+            'payment_method_id' => $state['payment_method_id'] ?? null,
             'payment_receipt' => $state['payment_receipt'] ?? null,
             'shipping_phone' => $state['shipping_phone'] ?? null,
             'shipping_city' => $state['shipping_city'] ?? null,

@@ -113,10 +113,14 @@ class PaymentsRelationManager extends RelationManager
                             ->title('Платіж додано')
                             ->body('Платіж успішно додано до замовлення')
                             ->send();
+                        $this->redirect(request()->header('Referer'));
                     }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->after(function () {
+                        $this->redirect(request()->header('Referer'));
+                    }),
                 Tables\Actions\DeleteAction::make()
                     ->after(function ($record) {
                         Notification::make()
@@ -124,6 +128,7 @@ class PaymentsRelationManager extends RelationManager
                             ->title('Платіж видалено')
                             ->body('Платіж успішно видалено з замовлення')
                             ->send();
+                        $this->redirect(request()->header('Referer'));
                     }),
             ])
             ->bulkActions([

@@ -81,11 +81,20 @@ class PaymentsRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
-                    ->label('Додати платіж'),
+                    ->label('Додати платіж')
+                    ->after(function () {
+                        $this->redirect(request()->header('Referer'));
+                    }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->after(function () {
+                        $this->redirect(request()->header('Referer'));
+                    }),
+                Tables\Actions\DeleteAction::make()
+                    ->after(function () {
+                        $this->redirect(request()->header('Referer'));
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
