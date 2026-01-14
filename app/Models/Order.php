@@ -15,6 +15,8 @@ class Order extends Model
         'member_id',
         'debt_account_id',
         'order_number',
+        'keycrm_order_id',
+        'keycrm_synced_at',
         'status',
         'total_amount',
         'final_amount',
@@ -42,6 +44,7 @@ class Order extends Model
         'remaining_amount' => 'decimal:2',
         'discount_percent' => 'decimal:2',
         'discount_amount' => 'decimal:2',
+        'keycrm_synced_at' => 'datetime',
     ];
 
     const STATUS_NEW = 'new';

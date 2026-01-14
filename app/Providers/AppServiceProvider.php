@@ -26,5 +26,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrap();
+        
+        // Реєструємо Observer для автоматичної відправки замовлень в KeyCRM
+        \App\Models\Order::observe(\App\Observers\OrderObserver::class);
     }
 }
