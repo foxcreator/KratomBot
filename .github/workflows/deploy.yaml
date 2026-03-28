@@ -20,6 +20,11 @@ jobs:
         run: |
           rsync -rltz --no-owner --no-group --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'vendor' --exclude 'storage' --exclude 'bootstrap/cache' ./ $REPO_PATH/
 
+      - name: 🔐 Fix storage permissions
+        run: |
+          sudo chown -R www-data:www-data $REPO_PATH/storage $REPO_PATH/bootstrap/cache
+          sudo chmod -R 775 $REPO_PATH/storage $REPO_PATH/bootstrap/cache
+
       - name: 📦 Composer install
         env:
           COMPOSER_ALLOW_SUPERUSER: 1
