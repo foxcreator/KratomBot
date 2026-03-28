@@ -92,6 +92,9 @@ class TelegramController extends Controller
                 //     }
                 // }
                 // --- Кінець вимкненого блоку ---
+                if ($update->getMessage()->has('photo')) {
+                    return;
+                }
 
                 if ($text === '/start') {
                     $this->sendWelcome($chatId, $username);
@@ -521,13 +524,16 @@ class TelegramController extends Controller
                         } else {
                             $photo = $product->image_url;
                         }
-                        Telegram::sendPhoto([
+                        $photoParams = [
                             'chat_id' => $chatId,
                             'photo' => $photo,
                             'caption' => $caption,
                             'parse_mode' => 'HTML',
-                            'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard])
-                        ]);
+                        ];
+                        if (!empty($inlineKeyboard)) {
+                            $photoParams['reply_markup'] = json_encode(['inline_keyboard' => $inlineKeyboard]);
+                        }
+                        Telegram::sendPhoto($photoParams);
                     }
 
                     $this->sendMessageWithCleanup($chatId, $member, [
@@ -1014,6 +1020,9 @@ class TelegramController extends Controller
         //     ...showClearCartConfirmation...
         // --- Кінець вимкненого блоку ---
         } elseif ($data === 'noop') {
+            Telegram::answerCallbackQuery([
+                'callback_query_id' => $this->getCallbackQueryId(),
+            ]);
             return;
         } elseif ($data === 'back_to_previous') {
             // Очищуємо checkout_state при поверненні
