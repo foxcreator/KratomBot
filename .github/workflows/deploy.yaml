@@ -18,7 +18,7 @@ jobs:
 
       - name: 📂 Sync files to web root
         run: |
-          rsync -avz --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'vendor' ./ $REPO_PATH/
+          rsync -avz --no-owner --no-group --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'vendor' ./ $REPO_PATH/
 
       - name: 📦 Composer install
         env:
