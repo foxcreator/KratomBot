@@ -38,13 +38,13 @@ class TelegramController extends Controller
 
     public function __construct()
     {
-        $this->telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
+        $this->telegram = new Api(config('telegram.bots.mybot.token'));
         $this->settings = app(TelegramSettings::class);
     }
 
     public function setWebhook()
     {
-        $url = env('APP_URL').'/telegram/webhook';
+        $url = config('app.url').'/telegram/webhook';
         $response = $this->telegram->setWebhook(['url' => $url]);
 
         return response()->json($response);
@@ -1459,7 +1459,7 @@ class TelegramController extends Controller
 
 
         $notify = "🆕 <b>Нове замовлення</b>\n\n👤 Username: {$member->username}\n💰 Сума: $order->formatted_total \n\n" .
-            env('APP_URL') . "/admin/orders/" . $order->id;
+            config('app.url') . "/admin/orders/" . $order->id;
         app(TelegramOrderNotifier::class)->send($notify);
 
         Telegram::sendMessage([
@@ -1481,7 +1481,7 @@ class TelegramController extends Controller
                     $file = Telegram::getFile(['file_id' => $fileId]);
                     $filePath = $file->get('file_path');
                     $localPath = storage_path('app/public/receipts/' . uniqid('receipt_') . '.jpg');
-                    $url = 'https://api.telegram.org/file/bot' . env('TELEGRAM_BOT_TOKEN') . '/' . $filePath;
+                    $url = 'https://api.telegram.org/file/bot' . config('telegram.bots.mybot.token') . '/' . $filePath;
                     $fileContent = @file_get_contents($url);
                     if ($fileContent === false) {
                         \Log::error('handlePhoto: file_get_contents failed', ['url' => $url]);
