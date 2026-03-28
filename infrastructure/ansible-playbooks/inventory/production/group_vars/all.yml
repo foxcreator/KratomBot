@@ -36,3 +36,6 @@ runner_labels:
   - kratombot
 runner_state: started
 reinstall_runner: true
+
+# Telegram Bot
+telegram_bot_token: "8033433770:AAGqydzaCbCjW9HeGMplKkv1J5KacbY16PY"
