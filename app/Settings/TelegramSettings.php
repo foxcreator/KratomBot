@@ -16,6 +16,10 @@ class TelegramSettings extends Settings
     public string $discount_info;
     public string $telegram_channel_username;
 
+    public bool $show_sales_group;
+    public bool $show_money_group;
+    public bool $show_stock_group;
+
     public static function group(): string
     {
         return 'telegram';

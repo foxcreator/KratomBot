@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Settings\TelegramSettings;
 
 class ProductResource extends Resource
 {
@@ -22,6 +23,11 @@ class ProductResource extends Resource
     protected static ?string $navigationLabel = 'Товари';
     protected static ?string $navigationGroup = 'Склад';
     protected static ?int $navigationSort = 5;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return app(TelegramSettings::class)->show_stock_group;
+    }
 
     public static function canAccess(): bool
     {

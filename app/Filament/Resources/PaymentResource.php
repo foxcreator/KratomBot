@@ -16,6 +16,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Settings\TelegramSettings;
 
 class PaymentResource extends Resource
 {
@@ -27,6 +28,11 @@ class PaymentResource extends Resource
     protected static ?string $pluralLabel = 'Платежі';
     protected static ?string $navigationGroup = 'Продажі';
     protected static ?int $navigationSort = 2;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return app(TelegramSettings::class)->show_sales_group;
+    }
 
     public static function form(Form $form): Form
     {

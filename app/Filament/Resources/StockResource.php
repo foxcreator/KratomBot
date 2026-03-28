@@ -13,6 +13,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Settings\TelegramSettings;
 
 class StockResource extends Resource
 {
@@ -21,6 +22,11 @@ class StockResource extends Resource
     protected static ?string $navigationLabel = 'Залишки';
     protected static ?string $pluralLabel = 'Залишки';
     protected static ?string $navigationGroup = 'Склад';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return app(TelegramSettings::class)->show_stock_group;
+    }
 
     public static function form(\Filament\Forms\Form $form): \Filament\Forms\Form
     {
@@ -59,8 +65,4 @@ class StockResource extends Resource
         ];
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true;
-    }
 }

@@ -28,6 +28,7 @@ use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use App\Settings\TelegramSettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -42,6 +43,11 @@ class OrderResource extends Resource
     protected static ?string $pluralLabel = 'Замовлення';
     protected static ?string $navigationGroup = 'Продажі';
     protected static ?int $navigationSort = 0;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return app(TelegramSettings::class)->show_sales_group;
+    }
 
     protected static function isProcessing($get): bool
     {

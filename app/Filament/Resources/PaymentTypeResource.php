@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Settings\TelegramSettings;
 
 class PaymentTypeResource extends Resource
 {
@@ -23,6 +24,11 @@ class PaymentTypeResource extends Resource
     protected static ?string $pluralLabel = 'Типи платежів';
     protected static ?string $navigationGroup = 'Гроші';
     protected static ?int $navigationSort = 7;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return app(TelegramSettings::class)->show_money_group;
+    }
 
     public static function canAccess(): bool
     {

@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Settings\TelegramSettings;
 
 class SubcategoryResource extends Resource
 {
@@ -24,6 +25,11 @@ class SubcategoryResource extends Resource
     protected static ?string $pluralLabel = 'Підкатегорії';
     protected static ?string $navigationGroup = 'Склад';
     protected static ?int $navigationSort = 4;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return app(TelegramSettings::class)->show_stock_group;
+    }
 
     public static function canAccess(): bool
     {

@@ -4,8 +4,10 @@ namespace App\Filament\Pages;
 
 use App\Settings\TelegramSettings;
 use Filament\Forms;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Pages\SettingsPage;
 
@@ -25,45 +27,65 @@ class ManageTelegram extends SettingsPage
     {
         return $form
             ->schema([
-                Textarea::make('hello_message')
-                    ->label('Вітання')
-                    ->rows(3)
-                    ->required(),
+                Section::make('Відображення розділів меню')
+                    ->description('Оберіть, які групи розділів показувати в бічному меню адмін-панелі')
+                    ->schema([
+                        Toggle::make('show_sales_group')
+                            ->label('Продажі (Замовлення, Платежі, Клієнти, Борги)')
+                            ->default(false),
+                        Toggle::make('show_money_group')
+                            ->label('Гроші (Каси, Зняття коштів, Способи оплати, Типи оплат)')
+                            ->default(false),
+                        Toggle::make('show_stock_group')
+                            ->label('Склад (Бренди, Товари, Підкатегорії, Поставки, Залишки)')
+                            ->default(true),
+                    ])
+                    ->columns(1)
+                    ->collapsible(),
 
-                Textarea::make('channel')
-                    ->label('Текст переходу в Telegram канал')
-                    ->rows(4),
+                Section::make('Telegram бот')
+                    ->schema([
+                        Textarea::make('hello_message')
+                            ->label('Вітання')
+                            ->rows(3)
+                            ->required(),
 
-                Textarea::make('how_ordering')
-                    ->label('Як замовити')
-                    ->rows(4),
+                        Textarea::make('channel')
+                            ->label('Текст переходу в Telegram канал')
+                            ->rows(4),
 
-                Textarea::make('payment')
-                    ->label('Оплата')
-                    ->rows(4),
+                        Textarea::make('how_ordering')
+                            ->label('Як замовити')
+                            ->rows(4),
 
-                Textarea::make('payments')
-                    ->label('Реквізити для оплати')
-                    ->rows(4),
+                        Textarea::make('payment')
+                            ->label('Оплата')
+                            ->rows(4),
 
-                Textarea::make('reviews')
-                    ->label('Відгуки')
-                    ->rows(4),
+                        Textarea::make('payments')
+                            ->label('Реквізити для оплати')
+                            ->rows(4),
 
-                TextInput::make('telegram_channel_discount')
-                    ->label('Знижка для підписників Telegram-каналу (%)')
-                    ->numeric()
-                    ->minValue(0)
-                    ->maxValue(100)
-                    ->default(0),
+                        Textarea::make('reviews')
+                            ->label('Відгуки')
+                            ->rows(4),
 
-                Textarea::make('discount_info')
-                    ->label("Текст для меню 'Отримай знижку'")
-                    ->rows(4),
+                        TextInput::make('telegram_channel_discount')
+                            ->label('Знижка для підписників Telegram-каналу (%)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->default(0),
 
-                TextInput::make('telegram_channel_username')
-                    ->label('Username Telegram-каналу (наприклад, @auraaashopp)')
-                    ->maxLength(255),
+                        Textarea::make('discount_info')
+                            ->label("Текст для меню 'Отримай знижку'")
+                            ->rows(4),
+
+                        TextInput::make('telegram_channel_username')
+                            ->label('Username Telegram-каналу (наприклад, @auraaashopp)')
+                            ->maxLength(255),
+                    ])
+                    ->collapsible(),
             ]);
     }
 }

@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
+use App\Settings\TelegramSettings;
 
 class MemberResource extends Resource
 {
@@ -25,6 +26,11 @@ class MemberResource extends Resource
     protected static ?string $pluralLabel = 'Клієнти';
     protected static ?string $navigationGroup = 'Продажі';
     protected static ?int $navigationSort = 2;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return app(TelegramSettings::class)->show_sales_group;
+    }
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {

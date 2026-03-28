@@ -19,6 +19,7 @@ use Filament\Tables\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Settings\TelegramSettings;
 
 class DebtAccountResource extends Resource
 {
@@ -30,6 +31,11 @@ class DebtAccountResource extends Resource
     protected static ?string $pluralLabel = 'Заборгованість';
     protected static ?string $navigationGroup = 'Продажі';
     protected static ?int $navigationSort = 1;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return app(TelegramSettings::class)->show_sales_group;
+    }
 
     public static function getEloquentQuery(): Builder
     {
