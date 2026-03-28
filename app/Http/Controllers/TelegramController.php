@@ -78,17 +78,20 @@ class TelegramController extends Controller
 
                 $member->save();
 
-                if ($update->getMessage()->has('photo')) {
-                    $photoSizes = $update->getMessage()->get('photo');
-                    if ($photoSizes instanceof \Illuminate\Support\Collection) {
-                        $photoSizes = $photoSizes->toArray();
-                    }
-                    if (is_array($photoSizes) && count($photoSizes) > 0) {
-                        $largestPhoto = $photoSizes[array_key_last($photoSizes)];
-                        $this->handlePhoto($chatId, $largestPhoto);
-                        return;
-                    }
-                }
+                // --- Тимчасово вимкнено (продажі неактивні) ---
+                // Обробка фото (квитанція оплати) вимкнена.
+                // if ($update->getMessage()->has('photo')) {
+                //     $photoSizes = $update->getMessage()->get('photo');
+                //     if ($photoSizes instanceof \Illuminate\Support\Collection) {
+                //         $photoSizes = $photoSizes->toArray();
+                //     }
+                //     if (is_array($photoSizes) && count($photoSizes) > 0) {
+                //         $largestPhoto = $photoSizes[array_key_last($photoSizes)];
+                //         $this->handlePhoto($chatId, $largestPhoto);
+                //         return;
+                //     }
+                // }
+                // --- Кінець вимкненого блоку ---
 
                 if ($text === '/start') {
                     $this->sendWelcome($chatId, $username);
@@ -463,92 +466,14 @@ class TelegramController extends Controller
     private function handleText($chatId, $text)
     {
         $member = Member::where('telegram_id', $chatId)->first();
-        if ($member && $member->checkout_state && isset($member->checkout_state['step'])) {
-            $state = $member->checkout_state;
-            $step = $state['step'];
-            if ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_PHONE']) {
-                $state['shipping_phone'] = $text;
-                $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_CITY'];
-                $member->checkout_state = $state;
-                $member->save();
-                $this->removeMainKeyboard($chatId);
-                $keyboard = [
-                    [['text' => '⬅️ Назад до телефону', 'callback_data' => 'back_to_phone_step']]
-                ];
-                $this->sendMessageWithCleanup($chatId, $member, [
-                    'chat_id' => $chatId,
-                    'text' => "Введіть місто для відправки:",
-                    'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
-                ]);
-                return;
-            } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_CITY']) {
-                $state['shipping_city'] = $text;
-                $state['shipping_carrier'] = 'Нова Пошта';
-                $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE'];
-                $member->checkout_state = $state;
-                $member->save();
-                $this->removeMainKeyboard($chatId);
-                $keyboard = [
-                    [['text' => '⬅️ Назад до міста', 'callback_data' => 'back_to_city_step']]
-                ];
-                $this->sendMessageWithCleanup($chatId, $member, [
-                    'chat_id' => $chatId,
-                    'text' => "Введіть номер відділення Нової Пошти:",
-                    'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
-                ]);
-                return;
-            } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_OFFICE']) {
-                $state['shipping_office'] = $text;
-                $state['step'] = self::CHECKOUT_STATE['AWAIT_SHIPPING_NAME'];
-                $member->checkout_state = $state;
-                $member->save();
-                $this->removeMainKeyboard($chatId);
-                $keyboard = [
-                    [['text' => '⬅️ Назад до відділення', 'callback_data' => 'back_to_office_step']]
-                ];
-                $this->sendMessageWithCleanup($chatId, $member, [
-                    'chat_id' => $chatId,
-                    'text' => "Введіть ПІБ отримувача:",
-                    'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
-                ]);
-                return;
-            } elseif ($step === self::CHECKOUT_STATE['AWAIT_SHIPPING_NAME']) {
-                $state['shipping_name'] = $text;
-                $member->checkout_state = $state;
-                $member->save();
-                // Перевіряємо, чи всі дані заповнені
-                $requiredFields = [
-                    'shipping_phone',
-                    'shipping_city',
-                    'shipping_office',
-                    'shipping_name',
-                ];
-                $missing = [];
-                foreach ($requiredFields as $field) {
-                    if (empty($state[$field])) {
-                        $missing[] = $field;
-                    }
-                }
-                if (count($missing) === 0) {
-                    $this->finalizeOrder($chatId, $state['payment_type'] ?? 'cod');
-                } else {
-                    // Якщо чогось не вистачає — просимо ввести ще раз
-                    $fieldNames = [
-                        'shipping_phone' => 'номер телефону',
-                        'shipping_city' => 'місто',
-                        'shipping_office' => 'номер відділення',
-                        'shipping_name' => 'ПІБ отримувача',
-                    ];
-                    $fieldsList = array_map(fn($f) => $fieldNames[$f], $missing);
-                    $fieldsText = implode(', ', $fieldsList);
-                    $this->sendMessageWithCleanup($chatId, $member, [
-                        'chat_id' => $chatId,
-                        'text' => "Будь ласка, введіть: $fieldsText"
-                    ]);
-                }
-                return;
-            }
+        // --- Тимчасово вимкнено (продажі неактивні) ---
+        // Обробка checkout state (введення телефону, міста, відділення, ПІБ) вимкнена.
+        // Якщо у користувача застряг checkout_state — очищуємо його.
+        if ($member && $member->checkout_state) {
+            $member->checkout_state = null;
+            $member->save();
         }
+        // --- Кінець вимкненого блоку ---
         $replacements = ['username' => ($member && $member->username) ? '@' . $member->username : ''];
 
         switch ($text) {
@@ -580,18 +505,15 @@ class TelegramController extends Controller
                         if ($product->options && $product->options->count() > 0) {
                             $inlineKeyboard = [];
                             foreach ($product->options as $option) {
+                                // Тимчасово вимкнено (продажі неактивні) — показуємо тільки інформацію
                                 $inlineKeyboard[] = [
-                                    ['text' => $option->name . ' — ' . $option->price . ' грн', 'callback_data' => 'choose_option_' . $option->id]
+                                    ['text' => $option->name . ' — ' . $option->price . ' грн', 'callback_data' => 'noop']
                                 ];
                             }
                         } else {
                             $caption .= "💰 {$product->price} грн";
-                            $inlineKeyboard = [
-                                [
-                                    ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_' . $product->id],
-                                    ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
-                                ]
-                            ];
+                            // Тимчасово вимкнено (продажі неактивні):
+                            $inlineKeyboard = [];
                         }
                         $localPath = public_path('/storage/'.$product->image_url);
                         if (file_exists($localPath)) {
@@ -616,19 +538,21 @@ class TelegramController extends Controller
                     $this->sendMainMenu($chatId, "Топ продажів поки що порожній.");
                 }
                 break;
-            case (preg_match('/^🛒 Кошик/', $text) ? true : false):
-                if ($member) {
-                    $this->pushHistory($member);
-                    $this->setCurrentState($member, ['type' => 'cart']);
-                }
-                $this->showCart($chatId);
-                break;
-            case '💳 Оформити замовлення':
-                $this->checkoutCart($chatId);
-                break;
-            case '🗑 Очистити корзину':
-                $this->clearCart($chatId);
-                break;
+            // --- Тимчасово вимкнено (продажі неактивні) ---
+            // case (preg_match('/^🛒 Кошик/', $text) ? true : false):
+            //     if ($member) {
+            //         $this->pushHistory($member);
+            //         $this->setCurrentState($member, ['type' => 'cart']);
+            //     }
+            //     $this->showCart($chatId);
+            //     break;
+            // case '💳 Оформити замовлення':
+            //     $this->checkoutCart($chatId);
+            //     break;
+            // case '🗑 Очистити корзину':
+            //     $this->clearCart($chatId);
+            //     break;
+            // --- Кінець вимкненого блоку ---
             case '📘 Як замовити':
                 $messageText = $this->settings->how_ordering ?? 'Інформація відсутня.';
                 $this->sendMessageWithCleanup($chatId, $member, [
@@ -734,23 +658,25 @@ class TelegramController extends Controller
                     break;
                 }
 
-                if (str_starts_with($text, '🛒 Придбати ')) {
-                    $productId = (int)str_replace('🛒 Придбати ', '', $text);
-                    if ($member) {
-                        Order::create([
-                            'member_id' => $member->id,
-                            'product_id' => $productId,
-                            'status' => 'new',
-                            'source' => 'bot',
-                        ]);
-                    }
-                    Telegram::sendMessage([
-                        'chat_id' => $chatId,
-                        'text' => 'Дякуємо за замовлення! Менеджер звʼяжеться з вами найближчим часом.'
-                    ]);
-                    $this->sendMainMenu($chatId);
-                    break;
-                }
+                // --- Тимчасово вимкнено (продажі неактивні) ---
+                // if (str_starts_with($text, '🛒 Придбати ')) {
+                //     $productId = (int)str_replace('🛒 Придбати ', '', $text);
+                //     if ($member) {
+                //         Order::create([
+                //             'member_id' => $member->id,
+                //             'product_id' => $productId,
+                //             'status' => 'new',
+                //             'source' => 'bot',
+                //         ]);
+                //     }
+                //     Telegram::sendMessage([
+                //         'chat_id' => $chatId,
+                //         'text' => 'Дякуємо за замовлення! Менеджер звʼяжеться з вами найближчим часом.'
+                //     ]);
+                //     $this->sendMainMenu($chatId);
+                //     break;
+                // }
+                // --- Кінець вимкненого блоку ---
 
                 break;
         }
@@ -774,7 +700,8 @@ class TelegramController extends Controller
         foreach ($brands as $brand) {
             $keyboard[] = [$brand->name];
         }
-        $keyboard[] = ['⬅️ Назад', $this->getCartButton($chatId)[0]];
+        // $keyboard[] = ['⬅️ Назад', $this->getCartButton($chatId)[0]]; // тимчасово вимкнено (продажі неактивні)
+        $keyboard[] = ['⬅️ Назад'];
         
         $this->sendMessageWithCleanup($chatId, $member, [
             'chat_id' => $chatId,
@@ -805,7 +732,8 @@ class TelegramController extends Controller
             ['ℹ️ Про продукт'],
             ['💰 Прайс'],
             ['🛒 Товари категорії'],
-            ['⬅️ Назад', $this->getCartButton($chatId)[0]],
+            // ['⬅️ Назад', $this->getCartButton($chatId)[0]], // тимчасово вимкнено (продажі неактивні)
+            ['⬅️ Назад'],
         ];
     }
 
@@ -818,7 +746,8 @@ class TelegramController extends Controller
             foreach ($subcategories as $subcategory) {
                 $keyboard[] = [$subcategory->name];
             }
-            $keyboard[] = ['⬅️ Назад', $this->getCartButton($chatId)[0]];
+            // $keyboard[] = ['⬅️ Назад', $this->getCartButton($chatId)[0]]; // тимчасово вимкнено (продажі неактивні)
+            $keyboard[] = ['⬅️ Назад'];
             
             $this->sendMessageWithCleanup($chatId, $member, [
                 'chat_id' => $chatId,
@@ -951,18 +880,21 @@ class TelegramController extends Controller
                     $buttonText .= ' (немає в наявності)';
                 }
                 
+                // Тимчасово вимкнено (продажі неактивні) — показуємо тільки інформацію про ціни
                 $inlineKeyboard[] = [
-                    ['text' => $buttonText, 'callback_data' => $isAvailable ? 'choose_option_' . $option->id : 'noop']
+                    ['text' => $buttonText, 'callback_data' => 'noop']
                 ];
             }
         } else {
             $caption .= "💰 {$product->price} грн";
-            $inlineKeyboard = [
-                [
-                    ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_' . $product->id],
-                    ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
-                ]
-            ];
+            $inlineKeyboard = [];
+            // Тимчасово вимкнено (продажі неактивні):
+            // $inlineKeyboard = [
+            //     [
+            //         ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_' . $product->id],
+            //         ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_' . $product->id]
+            //     ]
+            // ];
         }
 
         // Додаємо кнопку повернення до списку товарів
@@ -998,7 +930,8 @@ class TelegramController extends Controller
             ['📂 Каталог', '🔥 Топ продажів'],
             ['🎁 Отримай знижку'],
             ['📘 Як замовити', '💳 Оплата'],
-            [$this->getCartButton($chatId)[0]],
+            // ['🛒 Кошик'] — тимчасово вимкнено (продажі неактивні)
+            // [$this->getCartButton($chatId)[0]],
             ['⭐️ Відгуки'],
         ];
     }
@@ -1029,11 +962,15 @@ class TelegramController extends Controller
             $optionId = (int)str_replace('choose_option_', '', $data);
             $option = ProductOption::find($optionId);
             if ($option) {
+                // Тимчасово вимкнено (продажі неактивні):
+                // $inlineKeyboard = [
+                //     [
+                //         ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_option_' . $option->id],
+                //         ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_option_' . $option->id]
+                //     ]
+                // ];
                 $inlineKeyboard = [
-                    [
-                        ['text' => '🛒 Придбати зараз', 'callback_data' => 'buy_product_option_' . $option->id],
-                        ['text' => '➕ Додати в корзину', 'callback_data' => 'add_to_cart_option_' . $option->id]
-                    ]
+                    [['text' => '⬅️ Назад до списку товарів', 'callback_data' => 'back_to_products_list']]
                 ];
                 $caption = "<b>{$option->product->name}</b>\n\n";
                 $caption .= "{$option->product->description}\n\n";
@@ -1058,49 +995,26 @@ class TelegramController extends Controller
                     ]);
                 }
             }
-        } elseif (str_starts_with($data, 'buy_product_option_')) {
-            if ($member) {
-                $this->pushHistory($member);
-                $this->setCurrentState($member, ['type' => 'option', 'id' => (int)str_replace('buy_product_option_', '', $data)]);
-            }
-            $optionId = (int)str_replace('buy_product_option_', '', $data);
-            $this->checkoutDirectProductOption($chatId, $optionId);
+        // --- Тимчасово вимкнено (продажі неактивні) ---
+        // } elseif (str_starts_with($data, 'buy_product_option_')) {
+        //     ...checkoutDirectProductOption...
+        // } elseif (str_starts_with($data, 'add_to_cart_option_')) {
+        //     ...addToCartOption...
+        // } elseif (str_starts_with($data, 'buy_product_')) {
+        //     ...checkoutDirectProduct...
+        // } elseif (str_starts_with($data, 'add_to_cart_')) {
+        //     ...addToCart...
+        // } elseif (str_starts_with($data, 'remove_from_cart_')) {
+        //     ...removeFromCart...
+        // } elseif (str_starts_with($data, 'increase/decrease_quantity_')) {
+        //     ...changeQuantity...
+        // } elseif ($data === 'checkout_cart') {
+        //     ...checkoutCart...
+        // } elseif ($data === 'clear_cart') {
+        //     ...showClearCartConfirmation...
+        // --- Кінець вимкненого блоку ---
+        } elseif ($data === 'noop') {
             return;
-        } elseif (str_starts_with($data, 'add_to_cart_option_')) {
-            if ($member) {
-                $this->pushHistory($member);
-                $this->setCurrentState($member, ['type' => 'option', 'id' => (int)str_replace('add_to_cart_option_', '', $data)]);
-            }
-            $optionId = (int)str_replace('add_to_cart_option_', '', $data);
-            $this->addToCartOption($chatId, $optionId);
-        } elseif (str_starts_with($data, 'buy_product_')) {
-            if ($member) {
-                $this->pushHistory($member);
-                $this->setCurrentState($member, ['type' => 'product', 'id' => (int)str_replace('buy_product_', '', $data)]);
-            }
-            $productId = (int)str_replace('buy_product_', '', $data);
-            $this->checkoutDirectProduct($chatId, $productId);
-            return;
-        } elseif (str_starts_with($data, 'add_to_cart_')) {
-            if ($member) {
-                $this->pushHistory($member);
-                $this->setCurrentState($member, ['type' => 'product', 'id' => (int)str_replace('add_to_cart_', '', $data)]);
-            }
-            $productId = (int)str_replace('add_to_cart_', '', $data);
-            $this->addToCart($chatId, $productId);
-        } elseif (str_starts_with($data, 'remove_from_cart_')) {
-            $itemId = (int)str_replace('remove_from_cart_', '', $data);
-            $this->removeFromCart($chatId, $itemId);
-        } elseif (str_starts_with($data, 'increase_quantity_')) {
-            $itemId = (int)str_replace('increase_quantity_', '', $data);
-            $this->changeQuantity($chatId, $itemId, 1);
-        } elseif (str_starts_with($data, 'decrease_quantity_')) {
-            $itemId = (int)str_replace('decrease_quantity_', '', $data);
-            $this->changeQuantity($chatId, $itemId, -1);
-        } elseif ($data === 'checkout_cart') {
-            $this->checkoutCart($chatId);
-        } elseif ($data === 'clear_cart') {
-            $this->showClearCartConfirmation($chatId);
         } elseif ($data === 'back_to_previous') {
             // Очищуємо checkout_state при поверненні
             if ($member && $member->checkout_state) {
@@ -1133,31 +1047,24 @@ class TelegramController extends Controller
                 $this->sendMainMenu($chatId);
             }
             return;
-        } elseif (str_starts_with($data, 'pay_method_')) {
-            $paymentMethodId = (int)str_replace('pay_method_', '', $data);
-            $this->startPaymentMethodCheckout($chatId, $paymentMethodId);
-            return;
-        } elseif ($data === 'pay_type_prepaid') {
-            $this->startPrepaidCheckout($chatId);
-            return;
-        } elseif ($data === 'pay_type_cod') {
-            $this->startCodCheckout($chatId);
-            return;
-        } elseif ($data === 'back_to_cart') {
-            $this->showCart($chatId);
-            return;
-        } elseif ($data === 'back_to_payment_selection') {
-            $this->checkoutCart($chatId);
-            return;
-        } elseif ($data === 'back_to_phone_step') {
-            $this->handleBackToPhoneStep($chatId);
-            return;
-        } elseif ($data === 'back_to_city_step') {
-            $this->handleBackToCityStep($chatId);
-            return;
-        } elseif ($data === 'back_to_office_step') {
-            $this->handleBackToOfficeStep($chatId);
-            return;
+        // --- Тимчасово вимкнено (продажі неактивні) ---
+        // } elseif (str_starts_with($data, 'pay_method_')) {
+        //     ...startPaymentMethodCheckout...
+        // } elseif ($data === 'pay_type_prepaid') {
+        //     ...startPrepaidCheckout...
+        // } elseif ($data === 'pay_type_cod') {
+        //     ...startCodCheckout...
+        // } elseif ($data === 'back_to_cart') {
+        //     ...showCart...
+        // } elseif ($data === 'back_to_payment_selection') {
+        //     ...checkoutCart...
+        // } elseif ($data === 'back_to_phone_step') {
+        //     ...handleBackToPhoneStep...
+        // } elseif ($data === 'back_to_city_step') {
+        //     ...handleBackToCityStep...
+        // } elseif ($data === 'back_to_office_step') {
+        //     ...handleBackToOfficeStep...
+        // --- Кінець вимкненого блоку ---
         } elseif (str_starts_with($data, 'show_subcategory_')) {
             if ($member) {
                 $subcategoryId = (int)str_replace('show_subcategory_', '', $data);
@@ -1243,12 +1150,14 @@ class TelegramController extends Controller
             }
             $this->sendMainMenu($chatId, "🏠 Головне меню");
             return;
-        } elseif ($data === 'confirm_clear_cart') {
-            $this->clearCart($chatId);
-            return;
-        } elseif ($data === 'cancel_clear_cart') {
-            $this->showCart($chatId);
-            return;
+        // --- Тимчасово вимкнено (продажі неактивні) ---
+        // } elseif ($data === 'confirm_clear_cart') {
+        //     $this->clearCart($chatId);
+        //     return;
+        // } elseif ($data === 'cancel_clear_cart') {
+        //     $this->showCart($chatId);
+        //     return;
+        // --- Кінець вимкненого блоку ---
         }
 
         $brand = Brand::where('name', $data)->first();
