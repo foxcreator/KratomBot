@@ -12,8 +12,10 @@
     - common
     - security
     - mysql
-    - php
+    - role: php
+      tags: ["php"]
     - nginx
     - certbot
     - deploy
-    - monolithprojects.github_actions_runner
+    - role: monolithprojects.github_actions_runner
+      tags: ["runner"]

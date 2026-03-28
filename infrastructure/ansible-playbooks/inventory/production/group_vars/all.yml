@@ -35,3 +35,4 @@ access_token: "{{ github_pat_token }}"
 runner_labels:
   - kratombot
 runner_state: started
+reinstall_runner: true
