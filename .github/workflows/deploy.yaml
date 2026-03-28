@@ -20,10 +20,10 @@ jobs:
         run: |
           rsync -rltz --no-owner --no-group --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'vendor' --exclude 'storage' --exclude 'bootstrap/cache' ./ $REPO_PATH/
 
-      - name: 🔐 Fix storage permissions
+      - name: 🔐 Ensure writable directories
         run: |
-          sudo chown -R www-data:www-data $REPO_PATH/storage $REPO_PATH/bootstrap/cache
-          sudo chmod -R 775 $REPO_PATH/storage $REPO_PATH/bootstrap/cache
+          sudo mkdir -p $REPO_PATH/storage/logs $REPO_PATH/storage/framework/{cache,sessions,views} $REPO_PATH/bootstrap/cache
+          sudo chmod -R 777 $REPO_PATH/storage $REPO_PATH/bootstrap/cache
 
       - name: 📦 Composer install
         env:
@@ -47,6 +47,11 @@ jobs:
           php artisan route:cache
           php artisan view:cache
           php artisan event:cache
+
+      - name: 🔐 Set final permissions
+        run: |
+          sudo chown -R www-data:www-data $REPO_PATH/storage $REPO_PATH/bootstrap/cache
+          sudo chmod -R 775 $REPO_PATH/storage $REPO_PATH/bootstrap/cache
 
       - name: 🔄 Restart services
         run: |
