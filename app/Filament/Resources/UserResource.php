@@ -39,7 +39,8 @@ class UserResource extends Resource
                     ->maxLength(255),
                 Forms\Components\TextInput::make('phone')
                     ->label('Номер телефону')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->default(null),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()
