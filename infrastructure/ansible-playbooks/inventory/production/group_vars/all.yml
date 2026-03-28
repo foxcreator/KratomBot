@@ -1,0 +1,37 @@
+# System Users
+deploy_user: deploy
+deploy_user_authorized_keys: [] # Add your public SSH keys here after deployment
+
+# MySQL
+mysql_root_password: "Kb4Rt!m8xQz2w"
+mysql_db_name: telegram_bot
+mysql_db_user: kratombot_user
+mysql_db_password: "aUr@Sh0p!2026db"
+
+# Application Sites
+sites:
+  - name: "kratombot"
+    domain: "aura-shop.com.ua"
+    root: "/var/www/kratombot"
+
+# PHP
+php_version: "8.2"
+
+# Security
+ssh_port: 22
+
+# Application
+app_name: "AuraShopBot"
+app_env: production
+app_debug: false
+app_url: "https://aura-shop.com.ua"
+
+# GitHub Actions Runner (monolithprojects.github_actions_runner)
+runner_user: deploy
+runner_dir: /opt/actions-runner
+github_account: foxcreator
+github_repo: KratomBot
+access_token: "{{ github_pat_token }}"
+runner_labels:
+  - kratombot
+runner_state: started

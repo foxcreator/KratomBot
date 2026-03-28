@@ -1,0 +1,25 @@
+---
+- name: Remove existing nodejs/npm installations
+  apt:
+    name:
+      - nodejs
+      - npm
+    state: absent
+  ignore_errors: yes
+
+- name: Download NodeSource setup script (Node.js 20.x LTS)
+  get_url:
+    url: https://deb.nodesource.com/setup_20.x
+    dest: /tmp/nodesource_setup.sh
+    mode: '0755'
+
+- name: Run NodeSource setup script
+  command: /tmp/nodesource_setup.sh
+  args:
+    creates: /etc/apt/sources.list.d/nodesource.list
+
+- name: Install Node.js (contains npm)
+  apt:
+    name: nodejs
+    state: present
+    update_cache: yes

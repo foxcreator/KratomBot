@@ -1,0 +1,53 @@
+---
+- name: Create project directory for {{ item.name }}
+  file:
+    path: "{{ item.root }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: www-data
+    mode: 0775
+
+- name: Set ACL for deploy user on {{ item.name }}
+  acl:
+    path: "{{ item.root }}"
+    entity: "{{ deploy_user }}"
+    etype: user
+    permissions: rwX
+    recursive: yes
+    state: present
+
+- name: Set ACL for www-data on {{ item.name }}
+  acl:
+    path: "{{ item.root }}"
+    entity: www-data
+    etype: user
+    permissions: rwX
+    recursive: yes
+    state: present
+
+- name: Create shared directories for {{ item.name }}
+  file:
+    path: "{{ item.root }}/{{ subitem }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: www-data
+    mode: 0775
+  loop:
+    - storage
+    - storage/app
+    - storage/framework
+    - storage/framework/cache
+    - storage/framework/sessions
+    - storage/framework/views
+    - storage/logs
+    - bootstrap/cache
+  loop_control:
+    loop_var: subitem
+
+- name: Create .env file for {{ item.name }}
+  template:
+    src: env.j2
+    dest: "{{ item.root }}/.env"
+    owner: "{{ deploy_user }}"
+    group: www-data
+    mode: '0660'

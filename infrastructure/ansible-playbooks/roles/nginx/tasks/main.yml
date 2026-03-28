@@ -1,0 +1,33 @@
+---
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload Nginx
+
+- name: Create Nginx Vhost
+  template:
+    src: vhost.j2
+    dest: /etc/nginx/sites-available/{{ item.name }}
+  loop: "{{ sites }}"
+  notify: Reload Nginx
+
+- name: Enable Nginx Vhost
+  file:
+    src: /etc/nginx/sites-available/{{ item.name }}
+    dest: /etc/nginx/sites-enabled/{{ item.name }}
+    state: link
+  loop: "{{ sites }}"
+  notify: Reload Nginx
+
+- name: Ensure Nginx is running
+  service:
+    name: nginx
+    state: started
+    enabled: yes

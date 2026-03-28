@@ -2,15 +2,18 @@ FROM php:8.2-fpm-alpine
 
 COPY docker/conf/php.ini /usr/local/etc/php/conf.d/php.ini
 
-# Пакети для intl + zip
+# Packages for PHP extensions
 RUN apk add --no-cache \
     icu-dev \
     libzip-dev \
     zip \
+    unzip \
     libxml2-dev \
     freetype-dev \
     libjpeg-turbo-dev \
     libpng-dev \
+    ca-certificates \
+    curl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
         pdo \
@@ -20,5 +23,5 @@ RUN apk add --no-cache \
         gd \
         zip
 
-# Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Composer — multi-stage copy (no network dependency, no zlib issues)
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer

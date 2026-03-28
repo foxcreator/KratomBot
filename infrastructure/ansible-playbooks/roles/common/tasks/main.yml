@@ -1,0 +1,47 @@
+---
+- name: Install common packages
+  apt:
+    name:
+      - git
+      - curl
+      - zip
+      - unzip
+      - acl
+      - htop
+      - vim
+      - software-properties-common
+    state: present
+    update_cache: yes
+
+- name: Enable universe repository
+  command: add-apt-repository universe -y
+  register: universe_repo
+  changed_when: '"already enabled" not in universe_repo.stdout'
+
+- name: Ensure deploy group exists
+  group:
+    name: "{{ deploy_user }}"
+    state: present
+
+- name: Ensure deploy user exists
+  user:
+    name: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    groups: sudo
+    shell: /bin/bash
+    append: yes
+    create_home: yes
+
+- name: Setup passwordless sudo for deploy user
+  lineinfile:
+    path: /etc/sudoers.d/{{ deploy_user }}
+    line: '{{ deploy_user }} ALL=(ALL) NOPASSWD: ALL'
+    create: yes
+    mode: 0440
+    validate: 'visudo -cf %s'
+
+- name: Add authorized keys for deploy user
+  authorized_key:
+    user: "{{ deploy_user }}"
+    key: "{{ item }}"
+  loop: "{{ deploy_user_authorized_keys }}"

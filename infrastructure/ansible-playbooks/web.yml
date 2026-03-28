@@ -1,0 +1,19 @@
+---
+- hosts: web
+  become: true
+
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+  roles:
+    - common
+    - security
+    - mysql
+    - php
+    - nginx
+    - certbot
+    - deploy
+    - monolithprojects.github_actions_runner

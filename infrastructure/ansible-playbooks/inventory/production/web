@@ -1,0 +1,3 @@
+[web]
+# IP will be updated after terraform apply
+kratombot-web ansible_host=204.168.219.128 ansible_ssh_user=root ansible_ssh_private_key_file=../terraform/files/tf_hetzner

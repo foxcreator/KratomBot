@@ -1,4 +1,4 @@
-name: Deploy AurashopBot
+name: Deploy AuraShopBot
 
 on:
   push:
@@ -13,31 +13,37 @@ jobs:
       REPO_PATH: "/var/www/kratombot"
 
     steps:
-      - name: ✅ Trust repo path
-        run: |
-          export HOME=/home/deploy
-          git config --global --add safe.directory /var/www/kratombot
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
 
-      - name: 🔄 Pull latest code
+      - name: 📂 Sync files to web root
         run: |
-          cd $REPO_PATH
-            git reset --hard
-            git pull origin master
+          rsync -avz --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'vendor' ./ $REPO_PATH/
 
       - name: 📦 Composer install
         env:
-          HOME: /home/deploy
           COMPOSER_ALLOW_SUPERUSER: 1
         run: |
           cd $REPO_PATH
-          composer install --no-dev --optimize-autoloader
+          composer install --no-dev --optimize-autoloader --no-interaction
 
-      - name: 🧱 Laravel commands
+      - name: 🔑 Generate Application Key (if missing)
+        run: |
+          cd $REPO_PATH
+          if ! grep -q "^APP_KEY=base64:" .env; then
+            php artisan key:generate --force
+          fi
+
+      - name: 🧱 Laravel optimize
         run: |
           cd $REPO_PATH
           php artisan migrate --force
-          php artisan config:clear
-          php artisan view:clear
-          php artisan cache:clear
-          php artisan route:clear
-          php artisan optimize:clear
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan event:cache
+
+      - name: 🔄 Restart services
+        run: |
+          sudo systemctl reload php8.2-fpm
+          sudo systemctl reload nginx

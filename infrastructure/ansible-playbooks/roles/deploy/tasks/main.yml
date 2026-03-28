@@ -1,0 +1,4 @@
+---
+- name: Setup each site
+  include_tasks: setup_site.yml
+  loop: "{{ sites }}"

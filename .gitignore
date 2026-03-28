@@ -25,3 +25,9 @@ yarn-error.log
 
 # macOS
 .DS_Store
+
+# Infrastructure secrets
+infrastructure/terraform/files/tf_hetzner
+infrastructure/terraform/**/.terraform/
+infrastructure/terraform/**/.terraform.lock.hcl
+infrastructure/terraform/**/terraform.tfstate*
