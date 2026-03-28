@@ -52,23 +52,28 @@ class ManageTelegram extends SettingsPage
 
                         Textarea::make('channel')
                             ->label('Текст переходу в Telegram канал')
-                            ->rows(4),
+                            ->rows(4)
+                            ->nullable(),
 
                         Textarea::make('how_ordering')
                             ->label('Як замовити')
-                            ->rows(4),
+                            ->rows(4)
+                            ->nullable(),
 
                         Textarea::make('payment')
                             ->label('Оплата')
-                            ->rows(4),
+                            ->rows(4)
+                            ->nullable(),
 
                         Textarea::make('payments')
                             ->label('Реквізити для оплати')
-                            ->rows(4),
+                            ->rows(4)
+                            ->nullable(),
 
                         Textarea::make('reviews')
                             ->label('Відгуки')
-                            ->rows(4),
+                            ->rows(4)
+                            ->nullable(),
 
                         TextInput::make('telegram_channel_discount')
                             ->label('Знижка для підписників Telegram-каналу (%)')
@@ -79,11 +84,13 @@ class ManageTelegram extends SettingsPage
 
                         Textarea::make('discount_info')
                             ->label("Текст для меню 'Отримай знижку'")
-                            ->rows(4),
+                            ->rows(4)
+                            ->nullable(),
 
                         TextInput::make('telegram_channel_username')
                             ->label('Username Telegram-каналу (наприклад, @auraaashopp)')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->nullable(),
                     ])
                     ->collapsible(),
             ]);

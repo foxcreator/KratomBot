@@ -48,7 +48,8 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('password')
                     ->label('Пароль')
                     ->password()
-                    ->required()
+                    ->required(fn (string $operation): bool => $operation === 'create')
+                    ->dehydrated(fn (?string $state): bool => filled($state))
                     ->maxLength(255),
                 Forms\Components\Toggle::make('is_admin')
                     ->label('Менеджер / Адмін')
