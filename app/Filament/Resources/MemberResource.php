@@ -172,23 +172,21 @@ class MemberResource extends Resource
                         'zero' => 'Нульовий баланс',
                     ])
                     ->query(function ($query, array $data) {
-                        $query->whereHas('debtAccount');
-                        
-                        if ($data['value'] === 'positive') {
-                            return $query->whereHas('debtAccount', function ($q) {
-                                $q->where('balance', '>', 0);
-                            });
+                        $value = $data['value'] ?? null;
+                        if (!$value) {
+                            return $query;
                         }
-                        if ($data['value'] === 'negative') {
-                            return $query->whereHas('debtAccount', function ($q) {
-                                $q->where('balance', '<', 0);
-                            });
+
+                        if ($value === 'positive') {
+                            return $query->whereHas('debtAccount', fn ($q) => $q->where('balance', '>', 0));
                         }
-                        if ($data['value'] === 'zero') {
-                            return $query->whereHas('debtAccount', function ($q) {
-                                $q->where('balance', '=', 0);
-                            });
+                        if ($value === 'negative') {
+                            return $query->whereHas('debtAccount', fn ($q) => $q->where('balance', '<', 0));
                         }
+                        if ($value === 'zero') {
+                            return $query->whereHas('debtAccount', fn ($q) => $q->where('balance', '=', 0));
+                        }
+
                         return $query;
                     })
             ])
