@@ -68,19 +68,40 @@ class TelegramController extends Controller
                 $text = $update->getMessage()->getText();
                 $messageId = $update->getMessage()->getMessageId();
 
-                $member = \App\Models\Member::query()->firstOrNew(['telegram_id' => $chatId]);
+                try {
+                    $member = \App\Models\Member::query()->firstOrNew(['telegram_id' => $chatId]);
+                    $wasNew = !$member->exists;
 
-                $member->username = $username;
-                if (is_null($member->full_name)) {
-                    $member->full_name = $username;
+                    $member->telegram_id = (string) $chatId;
+                    if (!is_null($username)) {
+                        $member->username = $username;
+                    }
+                    if (empty($member->getAttributes()['full_name'] ?? null)) {
+                        $member->full_name = $username ?: ('id' . $chatId);
+                    }
+                    $member->save();
+
+                    Log::error('[TG] member upserted', [
+                        'wasNew' => $wasNew,
+                        'id' => $member->id,
+                        'telegram_id' => $member->telegram_id,
+                        'username' => $member->username,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::error('[TG] member upsert failed: ' . $e->getMessage(), [
+                        'chat_id' => $chatId,
+                        'username' => $username,
+                    ]);
+                    return;
                 }
 
-                // Зберігаємо ID повідомлення користувача для можливого видалення
                 if ($messageId) {
-                    $this->saveUserMessageId($member, $messageId);
+                    try {
+                        $this->saveUserMessageId($member, $messageId);
+                    } catch (\Throwable $e) {
+                        Log::warning('[TG] saveUserMessageId failed: ' . $e->getMessage());
+                    }
                 }
-
-                $member->save();
 
                 // --- Тимчасово вимкнено (продажі неактивні) ---
                 // Обробка фото (квитанція оплати) вимкнена.
@@ -117,8 +138,15 @@ class TelegramController extends Controller
     {
         $member = Member::where('telegram_id', $chatId)->first();
         if ($member && filled($this->settings->telegram_channel_username ?? '')) {
-            $member->is_subscribed = $this->isUserSubscribedToChannel($chatId);
-            $member->save();
+            try {
+                $isSubscribed = $this->isUserSubscribedToChannel($chatId);
+                if (\Illuminate\Support\Facades\Schema::hasColumn('members', 'is_subscribed')) {
+                    $member->is_subscribed = $isSubscribed;
+                    $member->save();
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Не вдалося оновити is_subscribed: ' . $e->getMessage());
+            }
         }
 
         $rawText = !empty($this->settings->hello_message) ? $this->settings->hello_message : "Вітаємо, {{ username }}!\n\nОберіть дію з меню нижче:";
