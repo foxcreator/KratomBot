@@ -95,6 +95,24 @@ class MemberResource extends Resource
                 Tables\Columns\TextColumn::make('username')
                     ->label('Username')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('is_subscribed')
+                    ->label('Підписка на канал')
+                    ->formatStateUsing(function ($state, Member $record) {
+                        if (!$record->telegram_id) {
+                            return '—';
+                        }
+                        if ($state === null) {
+                            return 'н/д';
+                        }
+                        return ((bool) $state) ? 'Так' : 'Ні';
+                    })
+                    ->badge()
+                    ->color(function (Member $record): string {
+                        if (!$record->telegram_id || $record->is_subscribed === null) {
+                            return 'gray';
+                        }
+                        return ((bool) $record->is_subscribed) ? 'success' : 'danger';
+                    }),
                 Tables\Columns\TextColumn::make('debtAccount.balance')
                     ->label('Баланс')
                     ->formatStateUsing(function ($state) {

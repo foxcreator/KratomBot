@@ -1,4 +1,4 @@
-hcloud_token = "FJjQhhm4HDor4zOLTvVDvYev8q9hS0Lc1MTapCjurTlLt0lqZHIv3n54SSqcKrqv"
+hcloud_token = ""
 
 firewall_rules = [
   {

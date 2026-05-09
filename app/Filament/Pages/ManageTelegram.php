@@ -45,6 +45,11 @@ class ManageTelegram extends SettingsPage
 
                 Section::make('Telegram бот')
                     ->schema([
+                        Toggle::make('start_only_mode')
+                            ->label('Тимчасово: лише стартове повідомлення')
+                            ->helperText('Увімкнено: зберігаємо користувача, одне повідомлення з поля «Вітання», без клавіатури та другого повідомлення про канал. Інші команди та кнопки ігноруються.')
+                            ->default(false),
+
                         Textarea::make('hello_message')
                             ->label('Вітання')
                             ->rows(3)

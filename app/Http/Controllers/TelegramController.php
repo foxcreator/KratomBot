@@ -53,8 +53,12 @@ class TelegramController extends Controller
     {
         try {
             $update = Telegram::getWebhookUpdates();
+            \Illuminate\Support\Facades\Log::info('Webhook update received:', is_object($update) && method_exists($update, 'toArray') ? $update->toArray() : (array)$update);
 
             if ($update->isType('callback_query')) {
+                if ($this->settings->start_only_mode) {
+                    return;
+                }
                 $chatId = $update->getCallbackQuery()->getMessage()->getChat()->getId();
                 $data = $update->getCallbackQuery()->getData();
                 $this->handleCallback($chatId, $data);
@@ -98,6 +102,8 @@ class TelegramController extends Controller
 
                 if ($text === '/start') {
                     $this->sendWelcome($chatId, $username);
+                } elseif ($this->settings->start_only_mode) {
+                    return;
                 } else {
                     $this->handleText($chatId, $text);
                 }
@@ -109,8 +115,23 @@ class TelegramController extends Controller
 
     private function sendWelcome($chatId, $username)
     {
+        $member = Member::where('telegram_id', $chatId)->first();
+        if ($member && filled($this->settings->telegram_channel_username ?? '')) {
+            $member->is_subscribed = $this->isUserSubscribedToChannel($chatId);
+            $member->save();
+        }
+
         $rawText = !empty($this->settings->hello_message) ? $this->settings->hello_message : "Вітаємо, {{ username }}!\n\nОберіть дію з меню нижче:";
         $text = $this->replacePlaceholders($rawText, ['username' => '@' . $username]);
+
+        if ($this->settings->start_only_mode) {
+            Telegram::sendMessage([
+                'chat_id' => $chatId,
+                'text' => $text,
+            ]);
+            return;
+        }
+
         $this->sendMainMenu($chatId, $text);
         if (!empty($this->settings->channel)) {
             Telegram::sendMessage([

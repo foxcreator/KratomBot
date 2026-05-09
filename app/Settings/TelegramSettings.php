@@ -16,6 +16,9 @@ class TelegramSettings extends Settings
     public ?string $discount_info = '';
     public ?string $telegram_channel_username = '';
 
+    /** Тимчасово: лише привітання при /start (без меню й замовлень). */
+    public bool $start_only_mode = false;
+
     public bool $show_sales_group = false;
     public bool $show_money_group = false;
     public bool $show_stock_group = true;
