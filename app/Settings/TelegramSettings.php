@@ -22,6 +22,7 @@ class TelegramSettings extends Settings
     public bool $show_sales_group = false;
     public bool $show_money_group = false;
     public bool $show_stock_group = true;
+    public bool $show_broadcasts_group = true;
 
     public static function group(): string
     {
