@@ -43,6 +43,7 @@ jobs:
         run: |
           cd $REPO_PATH
           php artisan migrate --force
+          php artisan storage:link --force || true
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
@@ -52,6 +53,12 @@ jobs:
         run: |
           sudo chown -R www-data:www-data $REPO_PATH/storage $REPO_PATH/bootstrap/cache
           sudo chmod -R 775 $REPO_PATH/storage $REPO_PATH/bootstrap/cache
+
+      - name: 🔁 Restart Laravel queue worker
+        run: |
+          cd $REPO_PATH
+          php artisan queue:restart || true
+          sudo supervisorctl restart kratombot-queue:* || true
 
       - name: 🔄 Restart services
         run: |

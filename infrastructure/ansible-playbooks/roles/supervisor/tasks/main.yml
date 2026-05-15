@@ -1,0 +1,12 @@
+---
+- name: Install supervisor
+  apt:
+    name: supervisor
+    state: present
+    update_cache: yes
+
+- name: Ensure supervisor is enabled and running
+  service:
+    name: supervisor
+    state: started
+    enabled: yes

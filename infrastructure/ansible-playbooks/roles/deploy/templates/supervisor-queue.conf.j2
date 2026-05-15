@@ -1,0 +1,14 @@
+[program:{{ item.name }}-queue]
+process_name=%(program_name)s_%(process_num)02d
+command=/usr/bin/php {{ item.root }}/artisan queue:work --queue=default --sleep=3 --tries=3 --max-time=3600 --no-interaction
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs={{ item.queue_workers | default(1) }}
+redirect_stderr=true
+stdout_logfile=/var/log/{{ item.name }}-queue.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopwaitsecs=60

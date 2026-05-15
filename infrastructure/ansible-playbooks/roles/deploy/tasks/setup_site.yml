@@ -51,3 +51,34 @@
     owner: "{{ deploy_user }}"
     group: www-data
     mode: '0660'
+
+- name: Install supervisor queue worker config for {{ item.name }}
+  template:
+    src: supervisor-queue.conf.j2
+    dest: "/etc/supervisor/conf.d/{{ item.name }}-queue.conf"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Supervisor reread
+  command: supervisorctl reread
+  register: supervisor_reread
+  changed_when: "'No config updates' not in supervisor_reread.stdout"
+
+- name: Supervisor update
+  command: supervisorctl update
+
+- name: Ensure {{ item.name }}-queue is running
+  command: "supervisorctl start {{ item.name }}-queue:*"
+  register: supervisor_start
+  failed_when:
+    - supervisor_start.rc != 0
+    - "'already started' not in supervisor_start.stderr"
+    - "'already started' not in supervisor_start.stdout"
+
+- name: Install cron for Laravel scheduler ({{ item.name }})
+  cron:
+    name: "Laravel scheduler for {{ item.name }}"
+    user: www-data
+    minute: "*"
+    job: "cd {{ item.root }} && /usr/bin/php artisan schedule:run >> /dev/null 2>&1"

@@ -16,6 +16,9 @@
       tags: ["php"]
     - nginx
     - certbot
-    - deploy
+    - role: supervisor
+      tags: ["supervisor"]
+    - role: deploy
+      tags: ["deploy"]
     - role: monolithprojects.github_actions_runner
       tags: ["runner"]
