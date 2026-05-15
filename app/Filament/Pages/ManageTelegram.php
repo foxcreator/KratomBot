@@ -39,6 +39,9 @@ class ManageTelegram extends SettingsPage
                         Toggle::make('show_stock_group')
                             ->label('Склад (Бренди, Товари, Підкатегорії, Поставки, Залишки)')
                             ->default(true),
+                        Toggle::make('show_broadcasts_group')
+                            ->label('Розсилка (Розсилки, Підписники)')
+                            ->default(true),
                     ])
                     ->columns(1)
                     ->collapsible(),

@@ -27,6 +27,7 @@ class Member extends Model
     protected $casts = [
         'checkout_state' => 'array',
         'ui_state' => 'array',
+        'is_subscribed' => 'boolean',
     ];
 
     public function promocode()
@@ -47,6 +48,11 @@ class Member extends Model
     public function cartItems()
     {
         return $this->hasMany(CartItem::class);
+    }
+
+    public function broadcastRecipients()
+    {
+        return $this->hasMany(BroadcastRecipient::class);
     }
 
     public function getCartTotalAttribute()
