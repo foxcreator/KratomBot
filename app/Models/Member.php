@@ -10,10 +10,19 @@ class Member extends Model
 {
     use HasFactory;
 
+    public const CHANNEL_JOIN_SOURCE_BOT = 'bot';
+    public const CHANNEL_JOIN_SOURCE_ORGANIC = 'organic';
+    public const CHANNEL_JOIN_SOURCE_UNKNOWN = 'unknown';
+
     protected $fillable = [
         'phone',
         'telegram_id',
         'is_subscribed',
+        'bot_started_at',
+        'last_interaction_at',
+        'channel_joined_at',
+        'channel_join_source',
+        'channel_link_clicked_at',
         'username',
         'current_brand_id',
         'checkout_state',
@@ -28,6 +37,10 @@ class Member extends Model
         'checkout_state' => 'array',
         'ui_state' => 'array',
         'is_subscribed' => 'boolean',
+        'bot_started_at' => 'datetime',
+        'last_interaction_at' => 'datetime',
+        'channel_joined_at' => 'datetime',
+        'channel_link_clicked_at' => 'datetime',
     ];
 
     public function promocode()

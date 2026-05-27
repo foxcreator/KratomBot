@@ -8,7 +8,10 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use App\Services\TelegramChannelTrackingService;
+use Filament\Actions\Action;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Pages\SettingsPage;
 
 class ManageTelegram extends SettingsPage
@@ -99,8 +102,41 @@ class ManageTelegram extends SettingsPage
                             ->label('Username Telegram-каналу (наприклад, @auraaashopp)')
                             ->maxLength(255)
                             ->nullable(),
+
+                        TextInput::make('bot_channel_invite_link')
+                            ->label('Invite link для трекінгу підписок')
+                            ->helperText('Генерується автоматично. Користувачі мають підписуватись саме по цьому посиланню з бота.')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->default(fn () => app(TelegramSettings::class)->bot_channel_invite_link),
                     ])
                     ->collapsible(),
             ]);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('generateInviteLink')
+                ->label('Створити invite link')
+                ->icon('heroicon-o-link')
+                ->requiresConfirmation()
+                ->action(function () {
+                    $link = app(TelegramChannelTrackingService::class)->ensureBotInviteLink();
+                    if ($link) {
+                        Notification::make()
+                            ->title('Invite link створено')
+                            ->body($link)
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Помилка')
+                            ->body('Перевірте, що бот — адмін каналу з правом запрошувати. Також вкажіть username каналу.')
+                            ->danger()
+                            ->send();
+                    }
+                }),
+        ];
     }
 }

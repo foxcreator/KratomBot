@@ -16,6 +16,9 @@ class TelegramSettings extends Settings
     public ?string $discount_info = '';
     public ?string $telegram_channel_username = '';
 
+    /** Invite link, створений ботом для відстеження підписок з бота. */
+    public ?string $bot_channel_invite_link = null;
+
     /** Тимчасово: лише привітання при /start (без меню й замовлень). */
     public bool $start_only_mode = false;
 

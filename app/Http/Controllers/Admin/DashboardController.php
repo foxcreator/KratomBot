@@ -16,14 +16,14 @@ class DashboardController extends Controller
     }
     public function index()
     {
+        $previous = null;
         $monthlySales = DB::table('orders')
             ->where('status', 'completed')
             ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(total_amount) as total')
             ->groupBy('month')
             ->orderBy('month')
             ->get()
-            ->map(function ($item, $index) use (&$previous) {
-                static $previous = null;
+            ->map(function ($item) use (&$previous) {
                 $current = $item->total;
 
                 if ($previous === null) {

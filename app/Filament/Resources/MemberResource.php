@@ -95,8 +95,27 @@ class MemberResource extends Resource
                 Tables\Columns\TextColumn::make('username')
                     ->label('Username')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('is_subscribed')
+                Tables\Columns\TextColumn::make('channel_join_source')
+                    ->label('Джерело каналу')
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        Member::CHANNEL_JOIN_SOURCE_BOT => 'Через бота',
+                        Member::CHANNEL_JOIN_SOURCE_ORGANIC => 'Органічно',
+                        Member::CHANNEL_JOIN_SOURCE_UNKNOWN => 'Невідомо',
+                        default => '—',
+                    })
+                    ->badge()
+                    ->color(fn (?string $state) => match ($state) {
+                        Member::CHANNEL_JOIN_SOURCE_BOT => 'success',
+                        Member::CHANNEL_JOIN_SOURCE_ORGANIC => 'info',
+                        default => 'gray',
+                    }),
+                Tables\Columns\TextColumn::make('channel_joined_at')
                     ->label('Підписка на канал')
+                    ->dateTime('d.m.Y H:i')
+                    ->placeholder('—')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('is_subscribed')
+                    ->label('На каналі зараз')
                     ->formatStateUsing(function ($state, Member $record) {
                         if (!$record->telegram_id) {
                             return '—';
@@ -162,6 +181,31 @@ class MemberResource extends Resource
                         if ($data['value'] === 'without_telegram') {
                             return $query->whereNull('telegram_id');
                         }
+                        return $query;
+                    }),
+                SelectFilter::make('channel_join_source')
+                    ->label('Джерело підписки на канал')
+                    ->options([
+                        Member::CHANNEL_JOIN_SOURCE_BOT => 'Через бота',
+                        Member::CHANNEL_JOIN_SOURCE_ORGANIC => 'Органічно',
+                        Member::CHANNEL_JOIN_SOURCE_UNKNOWN => 'Невідомо',
+                    ]),
+                SelectFilter::make('is_subscribed')
+                    ->label('Підписка на канал')
+                    ->options([
+                        '1' => 'Підписані',
+                        '0' => 'Не підписані',
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (($data['value'] ?? null) === '1') {
+                            return $query->where('is_subscribed', true);
+                        }
+                        if (($data['value'] ?? null) === '0') {
+                            return $query->where(function ($q) {
+                                $q->where('is_subscribed', false)->orWhereNull('is_subscribed');
+                            });
+                        }
+
                         return $query;
                     }),
                 SelectFilter::make('balance_status')

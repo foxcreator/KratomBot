@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Services\TelegramOrderNotifier;
+use App\Services\TelegramChannelTrackingService;
 use App\Models\Member;
 use App\Models\Setting;
 use App\Models\Product;
@@ -24,6 +25,7 @@ class TelegramController extends Controller
     protected $telegram;
     protected $channelsUsername;
     protected $settings;
+    protected TelegramChannelTrackingService $channelTracking;
 
     const CHECKOUT_STATE = [
         'AWAIT_PAYMENT_TYPE' => 'await_payment_type',
@@ -40,12 +42,16 @@ class TelegramController extends Controller
     {
         $this->telegram = new Api(config('telegram.bots.mybot.token'));
         $this->settings = app(TelegramSettings::class);
+        $this->channelTracking = app(TelegramChannelTrackingService::class);
     }
 
     public function setWebhook()
     {
         $url = config('app.url').'/telegram/webhook';
-        $response = $this->telegram->setWebhook(['url' => $url]);
+        $response = $this->telegram->setWebhook([
+            'url' => $url,
+            'allowed_updates' => ['message', 'callback_query', 'chat_member'],
+        ]);
 
         return response()->json($response);
     }
@@ -55,14 +61,25 @@ class TelegramController extends Controller
             $update = Telegram::getWebhookUpdates();
             \Illuminate\Support\Facades\Log::info('Webhook update received:', is_object($update) && method_exists($update, 'toArray') ? $update->toArray() : (array)$update);
 
+            if ($update->isType('chat_member')) {
+                $this->channelTracking->handleChatMemberUpdate($update);
+
+                return;
+            }
+
             if ($update->isType('callback_query')) {
-                if ($this->settings->start_only_mode) {
-                    return;
-                }
                 $chatId = $update->getCallbackQuery()->getMessage()->getChat()->getId();
                 $data = $update->getCallbackQuery()->getData();
+                $channelCallbacks = ['channel_subscribe_click', 'check_channel_subscription'];
+                if ($this->settings->start_only_mode && !in_array($data, $channelCallbacks, true)) {
+                    return;
+                }
                 $this->handleCallback($chatId, $data);
-            } elseif ($update->isType('message')) {
+
+                return;
+            }
+
+            if ($update->isType('message')) {
                 $chatId = $update->getMessage()->getChat()->getId();
                 $username = $update->getMessage()->getFrom()->getUsername();
                 $text = $update->getMessage()->getText();
@@ -79,6 +96,7 @@ class TelegramController extends Controller
                     if (empty($member->getAttributes()['full_name'] ?? null)) {
                         $member->full_name = $username ?: ('id' . $chatId);
                     }
+                    $member->last_interaction_at = now();
                     $member->save();
 
                     Log::error('[TG] member upserted', [
@@ -121,8 +139,12 @@ class TelegramController extends Controller
                     return;
                 }
 
-                if ($text === '/start') {
-                    $this->sendWelcome($chatId, $username);
+                if ($text && str_starts_with($text, '/start')) {
+                    $startPayload = $this->parseStartPayload($text);
+                    if ($startPayload === 'channel' && $member) {
+                        $this->channelTracking->markChannelLinkClicked($member);
+                    }
+                    $this->sendWelcome($chatId, $username, $member);
                 } elseif ($this->settings->start_only_mode) {
                     return;
                 } else {
@@ -134,39 +156,81 @@ class TelegramController extends Controller
         }
     }
 
-    private function sendWelcome($chatId, $username)
+    private function sendWelcome($chatId, $username, ?Member $member = null)
     {
-        $member = Member::where('telegram_id', $chatId)->first();
-        if ($member && filled($this->settings->telegram_channel_username ?? '')) {
-            try {
-                $isSubscribed = $this->isUserSubscribedToChannel($chatId);
-                if (\Illuminate\Support\Facades\Schema::hasColumn('members', 'is_subscribed')) {
-                    $member->is_subscribed = $isSubscribed;
-                    $member->save();
-                }
-            } catch (\Throwable $e) {
-                Log::warning('Не вдалося оновити is_subscribed: ' . $e->getMessage());
+        $member ??= Member::where('telegram_id', $chatId)->first();
+        if ($member) {
+            if (!$member->bot_started_at) {
+                $member->bot_started_at = now();
             }
+            $member->last_interaction_at = now();
+
+            if (filled($this->settings->telegram_channel_username ?? '')) {
+                try {
+                    $this->channelTracking->syncSubscriptionStatus($member, (string) $chatId, $this->telegram);
+                } catch (\Throwable $e) {
+                    Log::warning('Не вдалося оновити is_subscribed: ' . $e->getMessage());
+                }
+            }
+
+            $member->save();
         }
 
         $rawText = !empty($this->settings->hello_message) ? $this->settings->hello_message : "Вітаємо, {{ username }}!\n\nОберіть дію з меню нижче:";
-        $text = $this->replacePlaceholders($rawText, ['username' => '@' . $username]);
+        $text = $this->replacePlaceholders($rawText, ['username' => '@' . ($username ?: 'друже')]);
 
         if ($this->settings->start_only_mode) {
             Telegram::sendMessage([
                 'chat_id' => $chatId,
                 'text' => $text,
             ]);
+            $this->sendChannelSubscriptionPrompt($chatId, $member);
+
             return;
         }
 
         $this->sendMainMenu($chatId, $text);
-        if (!empty($this->settings->channel)) {
-            Telegram::sendMessage([
-                'chat_id' => $chatId,
-                'text' => $this->settings->channel
-            ]);
+        $this->sendChannelSubscriptionPrompt($chatId, $member);
+    }
+
+    private function sendChannelSubscriptionPrompt($chatId, ?Member $member = null): void
+    {
+        if (empty($this->settings->channel) && !$this->channelTracking->getChannelChatId()) {
+            return;
         }
+
+        $text = $this->settings->channel ?: 'Підпишіться на наш Telegram-канал, щоб отримувати новини та знижки!';
+        $inviteLink = $this->channelTracking->getBotInviteLink()
+            ?? $this->channelTracking->ensureBotInviteLink($this->telegram);
+
+        $inlineKeyboard = [];
+        if ($inviteLink) {
+            $inlineKeyboard[] = [
+                ['text' => '📢 Підписатися на канал', 'url' => $inviteLink],
+            ];
+            $inlineKeyboard[] = [
+                ['text' => '✅ Перевірити підписку', 'callback_data' => 'check_channel_subscription'],
+            ];
+        }
+
+        $params = [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'parse_mode' => 'HTML',
+        ];
+
+        if (!empty($inlineKeyboard)) {
+            $params['reply_markup'] = json_encode(['inline_keyboard' => $inlineKeyboard]);
+        }
+
+        Telegram::sendMessage($params);
+    }
+
+    private function parseStartPayload(string $text): ?string
+    {
+        $parts = preg_split('/\s+/', trim($text), 2);
+
+        return isset($parts[1]) ? trim($parts[1]) : null;
     }
 
     private function sendMainMenu($chatId, $text = null)
@@ -544,6 +608,10 @@ class TelegramController extends Controller
                     'parse_mode' => 'HTML',
                     'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true])
                 ]);
+                if ($member) {
+                    $this->channelTracking->markChannelLinkClicked($member);
+                }
+                $this->sendChannelSubscriptionPrompt($chatId, $member);
                 break;
             case '🔥 Топ продажів':
                 if ($member) {
@@ -1068,6 +1136,30 @@ class TelegramController extends Controller
         // } elseif ($data === 'clear_cart') {
         //     ...showClearCartConfirmation...
         // --- Кінець вимкненого блоку ---
+        } elseif ($data === 'check_channel_subscription') {
+            if ($member) {
+                $this->channelTracking->markChannelLinkClicked($member);
+                $isSubscribed = $this->channelTracking->syncSubscriptionStatus($member, (string) $chatId, $this->telegram);
+                $discountPercent = (float) ($this->settings->telegram_channel_discount ?? 0);
+                $message = $isSubscribed
+                    ? "✅ Ви підписані на канал!" . ($discountPercent > 0 ? " Ваша знижка: {$discountPercent}%." : '')
+                    : '❌ Підписку не знайдено. Натисніть «Підписатися на канал» і спробуйте ще раз.';
+            } else {
+                $message = 'Спочатку натисніть /start';
+                $isSubscribed = false;
+            }
+            Telegram::answerCallbackQuery([
+                'callback_query_id' => $this->getCallbackQueryId(),
+                'text' => $isSubscribed ? 'Підписка підтверджена' : 'Підписка не знайдена',
+                'show_alert' => true,
+            ]);
+            if ($member && !$this->settings->start_only_mode) {
+                $this->sendMessageWithCleanup($chatId, $member, [
+                    'chat_id' => $chatId,
+                    'text' => $message,
+                    'reply_markup' => json_encode(['keyboard' => $this->getMainMenuKeyboard($chatId), 'resize_keyboard' => true]),
+                ]);
+            }
         } elseif ($data === 'noop') {
             Telegram::answerCallbackQuery([
                 'callback_query_id' => $this->getCallbackQueryId(),
