@@ -1760,11 +1760,37 @@ class TelegramController extends Controller
                 'chat_id' => $channelChatId,
                 'user_id' => $chatId
             ]);
-            return $member->status !== 'left';
+            $status = $this->extractChatMemberStatus($member);
+
+            return !in_array($status, ['left', 'kicked'], true);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
             return false;
         }
+    }
+
+    private function extractChatMemberStatus(mixed $chatMember): string
+    {
+        if (is_array($chatMember)) {
+            return (string) ($chatMember['status'] ?? 'left');
+        }
+
+        if (!is_object($chatMember)) {
+            return 'left';
+        }
+
+        if (method_exists($chatMember, 'getStatus')) {
+            return (string) ($chatMember->getStatus() ?? 'left');
+        }
+
+        if (method_exists($chatMember, 'toArray')) {
+            $data = $chatMember->toArray();
+            if (is_array($data)) {
+                return (string) ($data['status'] ?? 'left');
+            }
+        }
+
+        return (string) ($chatMember->status ?? 'left');
     }
 
     private function pushHistory($member)

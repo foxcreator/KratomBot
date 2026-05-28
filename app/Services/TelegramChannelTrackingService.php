@@ -125,9 +125,7 @@ class TelegramChannelTrackingService
                 'user_id' => $telegramChatId,
             ]);
 
-            $status = is_array($chatMember)
-                ? ($chatMember['status'] ?? 'left')
-                : ($chatMember->status ?? 'left');
+            $status = $this->extractChatMemberStatus($chatMember);
 
             $isSubscribed = !in_array($status, ['left', 'kicked'], true);
             $wasSubscribed = (bool) $member->is_subscribed;
@@ -261,5 +259,29 @@ class TelegramChannelTrackingService
     protected function isLeftStatus(?string $status): bool
     {
         return in_array($status, ['left', 'kicked'], true);
+    }
+
+    private function extractChatMemberStatus(mixed $chatMember): string
+    {
+        if (is_array($chatMember)) {
+            return (string) ($chatMember['status'] ?? 'left');
+        }
+
+        if (! is_object($chatMember)) {
+            return 'left';
+        }
+
+        if (method_exists($chatMember, 'getStatus')) {
+            return (string) ($chatMember->getStatus() ?? 'left');
+        }
+
+        if (method_exists($chatMember, 'toArray')) {
+            $data = $chatMember->toArray();
+            if (is_array($data)) {
+                return (string) ($data['status'] ?? 'left');
+            }
+        }
+
+        return (string) ($chatMember->status ?? 'left');
     }
 }
