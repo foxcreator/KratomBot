@@ -32,10 +32,14 @@ class BotAnalyticsService
 
     public function channelUnsubscribedCount(): int
     {
+        // Рахуємо тих хто підписувався (channel_joined_at є) але зараз не підписаний.
+        // Включаємо NULL бо is_subscribed може бути null після ручного скидання — такий юзер теж "не підписаний".
         return Member::query()
             ->whereNotNull('telegram_id')
             ->whereNotNull('channel_joined_at')
-            ->where('is_subscribed', false)
+            ->where(function ($q) {
+                $q->where('is_subscribed', false)->orWhereNull('is_subscribed');
+            })
             ->count();
     }
 

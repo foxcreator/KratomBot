@@ -128,7 +128,7 @@ class TelegramChannelTrackingService
             $status = $this->extractChatMemberStatus($chatMember);
 
             $isSubscribed = in_array($status, ['member', 'administrator', 'creator', 'restricted'], true);
-            $wasSubscribed = (bool) $member->is_subscribed;
+            $wasSubscribed = $member->is_subscribed; // зберігаємо оригінальне значення (може бути null)
 
             $member->is_subscribed = $isSubscribed;
 
@@ -137,15 +137,27 @@ class TelegramChannelTrackingService
                 if (!$member->channel_joined_at) {
                     $member->channel_joined_at = now();
                 }
+                Log::info('[ChannelTracking] syncSubscriptionStatus: юзер підписаний', [
+                    'telegram_id' => $member->telegram_id,
+                    'status' => $status,
+                    'source' => $member->channel_join_source,
+                ]);
             } elseif (!$isSubscribed && $wasSubscribed) {
                 $member->is_subscribed = false;
+                Log::info('[ChannelTracking] syncSubscriptionStatus: юзер відписаний (via getChatMember)', [
+                    'telegram_id' => $member->telegram_id,
+                    'status' => $status,
+                ]);
             }
 
             $member->save();
 
             return $isSubscribed;
         } catch (\Throwable $e) {
-            Log::warning('[ChannelTracking] getChatMember failed: ' . $e->getMessage());
+            Log::warning('[ChannelTracking] getChatMember failed — статус не оновлено: ' . $e->getMessage(), [
+                'telegram_id' => $member->telegram_id,
+                'channel_id' => $this->getChannelChatId(),
+            ]);
 
             return (bool) $member->is_subscribed;
         }
@@ -253,7 +265,7 @@ class TelegramChannelTrackingService
 
     protected function isJoinedStatus(?string $status): bool
     {
-        return in_array($status, ['member', 'administrator', 'creator'], true);
+        return in_array($status, ['member', 'administrator', 'creator', 'restricted'], true);
     }
 
     protected function isLeftStatus(?string $status): bool

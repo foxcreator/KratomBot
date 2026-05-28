@@ -165,7 +165,11 @@ class TelegramController extends Controller
             }
             $member->last_interaction_at = now();
 
-            if (filled($this->channelTracking->getChannelChatId())) {
+            // Синхронізуємо підписку тільки якщо статус ще не відомий (null).
+            // Якщо is_subscribed вже true — довіряємо webhook-події (handleChatMemberUpdate),
+            // щоб уникнути перезапису правильного статусу ненадійним getChatMember.
+            // Якщо is_subscribed = false або null — синхронізуємо (юзер міг підписатись).
+            if (filled($this->channelTracking->getChannelChatId()) && $member->is_subscribed !== true) {
                 try {
                     $this->channelTracking->syncSubscriptionStatus($member, (string) $chatId, $this->telegram);
                 } catch (\Throwable $e) {
@@ -208,9 +212,8 @@ class TelegramController extends Controller
             $inlineKeyboard[] = [
                 ['text' => '📢 Підписатися на канал', 'url' => $inviteLink],
             ];
-            $inlineKeyboard[] = [
-                ['text' => '✅ Перевірити підписку', 'callback_data' => 'check_channel_subscription'],
-            ];
+            // Кнопка "Перевірити підписку" прибрана — підписка відстежується автоматично
+            // через chat_member webhook (бот має бути адміном каналу).
         }
 
         $params = [
@@ -1138,7 +1141,10 @@ class TelegramController extends Controller
         // --- Кінець вимкненого блоку ---
         } elseif ($data === 'check_channel_subscription') {
             if ($member) {
-                $this->channelTracking->markChannelLinkClicked($member);
+                // НЕ викликаємо markChannelLinkClicked тут — це викликало б помилкову атрибуцію
+                // органічних підписників як 'bot' (channel_link_clicked_at = now() → recentlyClickedBotLink = true завжди).
+                // markChannelLinkClicked викликається тільки при реальному кліку на invite link:
+                // через /start?channel deep link або кнопку "Отримай знижку".
                 $isSubscribed = $this->channelTracking->syncSubscriptionStatus($member, (string) $chatId, $this->telegram);
                 $discountPercent = (float) ($this->settings->telegram_channel_discount ?? 0);
                 $message = $isSubscribed
