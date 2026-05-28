@@ -64,13 +64,27 @@ class TelegramChannelTrackingService
 
     public function handleChatMemberUpdate(Update $update): void
     {
+        // ДІАГНОСТИКА — видалити після перевірки
+        Log::error('[ChannelTracking][DEBUG] chat_member update received', [
+            'raw' => method_exists($update, 'toArray') ? $update->toArray() : [],
+        ]);
+
         $chatMemberUpdate = $update->getChatMember();
         if (!$chatMemberUpdate) {
+            Log::error('[ChannelTracking][DEBUG] getChatMember() повернув null');
             return;
         }
 
         $chat = $chatMemberUpdate->getChat();
         $channelId = $this->getChannelChatId();
+
+        Log::error('[ChannelTracking][DEBUG] channel check', [
+            'settings_channel_id' => $channelId,
+            'chat_id_from_update' => $chat ? $chat->getId() : null,
+            'chat_username_from_update' => $chat ? $chat->getUsername() : null,
+            'is_target' => $channelId && $chat ? $this->isTargetChannel($chat, $channelId) : false,
+        ]);
+
         if (!$channelId || !$this->isTargetChannel($chat, $channelId)) {
             return;
         }
