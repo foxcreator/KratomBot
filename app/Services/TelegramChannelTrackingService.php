@@ -64,73 +64,48 @@ class TelegramChannelTrackingService
 
     public function handleChatMemberUpdate(Update $update): void
     {
-        // ДІАГНОСТИКА — видалити після перевірки
-        Log::error('[ChannelTracking][DEBUG] chat_member update received', [
-            'raw' => method_exists($update, 'toArray') ? $update->toArray() : [],
-        ]);
-
         $chatMemberUpdate = $update->getChatMember();
         if (!$chatMemberUpdate) {
-            Log::error('[ChannelTracking][DEBUG] getChatMember() повернув null');
+            Log::warning('[ChannelTracking] getChatMember() повернув null');
             return;
         }
 
-        $chat = $chatMemberUpdate->getChat();
+        // SDK magic-getters (.getStatus(), .getId() тощо) повертають false/null
+        // через баг у __call BaseObject. Читаємо всі дані через toArray() — надійно і без магії.
+        $raw = method_exists($chatMemberUpdate, 'toArray') ? $chatMemberUpdate->toArray() : [];
+
         $channelId = $this->getChannelChatId();
-
-        Log::error('[ChannelTracking][DEBUG] channel check', [
-            'settings_channel_id' => $channelId,
-            'chat_id_from_update' => $chat ? $chat->getId() : null,
-            'chat_username_from_update' => $chat ? $chat->getUsername() : null,
-            'is_target' => $channelId && $chat ? $this->isTargetChannel($chat, $channelId) : false,
-        ]);
-
-        if (!$channelId || !$this->isTargetChannel($chat, $channelId)) {
+        if (!$channelId) {
             return;
         }
 
-        $newMember = $chatMemberUpdate->getNewChatMember();
-        $oldMember = $chatMemberUpdate->getOldChatMember();
-
-        Log::error('[ChannelTracking][DEBUG] members', [
-            'newMember_type' => gettype($newMember),
-            'oldMember_type' => gettype($oldMember),
-            'newMember_null' => $newMember === null,
-            'oldMember_null' => $oldMember === null,
-        ]);
-
-        if (!$newMember || !$oldMember) {
-            Log::error('[ChannelTracking][DEBUG] newMember або oldMember = null, виходимо');
+        $chatId       = (string) ($raw['chat']['id'] ?? '');
+        $chatUsername = $raw['chat']['username'] ?? null;
+        if (!$this->isTargetChannelRaw($chatId, $chatUsername, $channelId)) {
             return;
         }
 
-        $user = $newMember->getUser();
-        $telegramId = (string) $user?->getId();
-        $newStatus = $newMember->getStatus();
-        $oldStatus = $oldMember->getStatus();
+        $newStatus  = $raw['new_chat_member']['status'] ?? null;
+        $oldStatus  = $raw['old_chat_member']['status'] ?? null;
+        $telegramId = (string) ($raw['new_chat_member']['user']['id'] ?? '');
 
-        Log::error('[ChannelTracking][DEBUG] statuses', [
-            'telegram_id' => $telegramId,
-            'newStatus' => $newStatus,
-            'oldStatus' => $oldStatus,
-            'isJoined' => $this->isJoinedStatus($newStatus),
-            'wasLeft' => $this->isLeftStatus($oldStatus),
-        ]);
-
-        if (!$user) {
-            Log::error('[ChannelTracking][DEBUG] user = null, виходимо');
+        if (!$telegramId) {
+            Log::warning('[ChannelTracking] telegramId пустий у chat_member update');
             return;
         }
 
         $member = Member::query()->firstOrNew(['telegram_id' => $telegramId]);
         if (!$member->exists) {
-            $member->username = $user->getUsername();
-            $member->full_name = trim(($user->getFirstName() ?? '') . ' ' . ($user->getLastName() ?? '')) ?: ('id' . $telegramId);
+            $rawUser           = $raw['new_chat_member']['user'] ?? [];
+            $member->username  = $rawUser['username'] ?? null;
+            $firstName         = $rawUser['first_name'] ?? '';
+            $lastName          = $rawUser['last_name'] ?? '';
+            $member->full_name = trim($firstName . ' ' . $lastName) ?: ('id' . $telegramId);
         }
 
         if ($this->isJoinedStatus($newStatus) && $this->isLeftStatus($oldStatus)) {
-            Log::error('[ChannelTracking][DEBUG] → handleChannelJoin викликається');
-            $this->handleChannelJoin($member, $chatMemberUpdate);
+            $inviteUrl = $raw['invite_link']['invite_link'] ?? null;
+            $this->handleChannelJoin($member, $inviteUrl);
         } elseif ($this->isLeftStatus($newStatus) && $this->isJoinedStatus($oldStatus)) {
             $this->handleChannelLeave($member);
         }
@@ -218,18 +193,10 @@ class TelegramChannelTrackingService
             : null;
     }
 
-    protected function handleChannelJoin(Member $member, $chatMemberUpdate): void
+    protected function handleChannelJoin(Member $member, ?string $inviteUrl = null): void
     {
         $member->is_subscribed = true;
         $member->channel_joined_at = now();
-
-        $inviteLink = $chatMemberUpdate->getInviteLink();
-        $inviteUrl = null;
-        if ($inviteLink) {
-            $inviteUrl = is_object($inviteLink)
-                ? ($inviteLink->inviteLink ?? $inviteLink->invite_link ?? null)
-                : ($inviteLink['invite_link'] ?? null);
-        }
 
         $botLink = $this->getBotInviteLink();
         if ($inviteUrl && $botLink && $inviteUrl === $botLink) {
@@ -243,6 +210,8 @@ class TelegramChannelTrackingService
         Log::info('[ChannelTracking] Користувач підписався на канал', [
             'telegram_id' => $member->telegram_id,
             'source' => $member->channel_join_source,
+            'invite_url' => $inviteUrl,
+            'bot_link' => $botLink,
             'invite_match' => $inviteUrl && $botLink && $inviteUrl === $botLink,
         ]);
     }
@@ -280,6 +249,23 @@ class TelegramChannelTrackingService
         return $member->channel_link_clicked_at->greaterThan(now()->subHours(48));
     }
 
+    protected function isTargetChannelRaw(string $chatId, ?string $chatUsername, string $channelId): bool
+    {
+        // Порівняння за username
+        if ($chatUsername) {
+            $normalizedChannel = ltrim(strtolower($channelId), '@');
+            $normalizedChat    = strtolower($chatUsername);
+            if ($normalizedChat === $normalizedChannel) {
+                return true;
+            }
+        }
+
+        // Порівняння за числовим ID
+        $normalizedId = ltrim($channelId, '@');
+        return $chatId === $normalizedId || $chatId === $channelId;
+    }
+
+    /** @deprecated Використовуй isTargetChannelRaw */
     protected function isTargetChannel($chat, string $channelId): bool
     {
         $chatUsername = $chat->getUsername();
@@ -312,21 +298,24 @@ class TelegramChannelTrackingService
             return (string) ($chatMember['status'] ?? 'left');
         }
 
-        if (! is_object($chatMember)) {
+        if (!is_object($chatMember)) {
             return 'left';
         }
 
-        if (method_exists($chatMember, 'getStatus')) {
-            return (string) ($chatMember->getStatus() ?? 'left');
-        }
-
+        // Спочатку пробуємо toArray() — найнадійніший спосіб з цим SDK
         if (method_exists($chatMember, 'toArray')) {
             $data = $chatMember->toArray();
-            if (is_array($data)) {
-                return (string) ($data['status'] ?? 'left');
+            if (is_array($data) && isset($data['status'])) {
+                return (string) $data['status'];
             }
         }
 
-        return (string) ($chatMember->status ?? 'left');
+        // Fallback: прямий доступ до властивості
+        $status = $chatMember->status ?? null;
+        if ($status !== null && $status !== false) {
+            return (string) $status;
+        }
+
+        return 'left';
     }
 }
