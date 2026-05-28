@@ -91,26 +91,45 @@ class TelegramChannelTrackingService
 
         $newMember = $chatMemberUpdate->getNewChatMember();
         $oldMember = $chatMemberUpdate->getOldChatMember();
+
+        Log::error('[ChannelTracking][DEBUG] members', [
+            'newMember_type' => gettype($newMember),
+            'oldMember_type' => gettype($oldMember),
+            'newMember_null' => $newMember === null,
+            'oldMember_null' => $oldMember === null,
+        ]);
+
         if (!$newMember || !$oldMember) {
+            Log::error('[ChannelTracking][DEBUG] newMember або oldMember = null, виходимо');
             return;
         }
 
         $user = $newMember->getUser();
+        $telegramId = (string) $user?->getId();
+        $newStatus = $newMember->getStatus();
+        $oldStatus = $oldMember->getStatus();
+
+        Log::error('[ChannelTracking][DEBUG] statuses', [
+            'telegram_id' => $telegramId,
+            'newStatus' => $newStatus,
+            'oldStatus' => $oldStatus,
+            'isJoined' => $this->isJoinedStatus($newStatus),
+            'wasLeft' => $this->isLeftStatus($oldStatus),
+        ]);
+
         if (!$user) {
+            Log::error('[ChannelTracking][DEBUG] user = null, виходимо');
             return;
         }
 
-        $telegramId = (string) $user->getId();
         $member = Member::query()->firstOrNew(['telegram_id' => $telegramId]);
         if (!$member->exists) {
             $member->username = $user->getUsername();
             $member->full_name = trim(($user->getFirstName() ?? '') . ' ' . ($user->getLastName() ?? '')) ?: ('id' . $telegramId);
         }
 
-        $newStatus = $newMember->getStatus();
-        $oldStatus = $oldMember->getStatus();
-
         if ($this->isJoinedStatus($newStatus) && $this->isLeftStatus($oldStatus)) {
+            Log::error('[ChannelTracking][DEBUG] → handleChannelJoin викликається');
             $this->handleChannelJoin($member, $chatMemberUpdate);
         } elseif ($this->isLeftStatus($newStatus) && $this->isJoinedStatus($oldStatus)) {
             $this->handleChannelLeave($member);
