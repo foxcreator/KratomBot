@@ -164,31 +164,47 @@ class TelegramController extends Controller
                 $member->bot_started_at = now();
             }
             $member->last_interaction_at = now();
-
-            // getChatMember НЕ викликається при /start — це зменшує навантаження на API
-            // і прибирає причину Connection timed out в webhook.
-            // Статус підписки оновлюється через:
-            //   1. chat_member webhook (миттєво, при підписці/відписці)
-            //   2. telegram:sync-channel-subscriptions (раз на 15 хвилин, страховка)
-
             $member->save();
         }
 
-        $rawText = !empty($this->settings->hello_message) ? $this->settings->hello_message : "Вітаємо, {{ username }}!\n\nОберіть дію з меню нижче:";
-        $text = $this->replacePlaceholders($rawText, ['username' => '@' . ($username ?: 'друже')]);
+        $rawText = !empty($this->settings->hello_message)
+            ? $this->settings->hello_message
+            : "Вітаємо, {{ username }}!\n\nОберіть дію з меню нижче:";
+        $helloText = $this->replacePlaceholders($rawText, ['username' => '@' . ($username ?: 'друже')]);
 
-        if ($this->settings->start_only_mode) {
-            Telegram::sendMessage([
-                'chat_id' => $chatId,
-                'text' => $text,
-            ]);
-            $this->sendChannelSubscriptionPrompt($chatId, $member);
-
-            return;
+        // Підготовка тексту каналу та invite link
+        $channelEnabled = !empty($this->settings->channel) || $this->channelTracking->getChannelChatId();
+        $channelText = null;
+        $inviteLink   = null;
+        if ($channelEnabled) {
+            $channelText = $this->settings->channel ?: 'Підпишіться на наш Telegram-канал!';
+            $inviteLink  = $this->channelTracking->getBotInviteLink()
+                ?? $this->channelTracking->ensureBotInviteLink($this->telegram);
         }
 
-        $this->sendMainMenu($chatId, $text);
-        $this->sendChannelSubscriptionPrompt($chatId, $member);
+        // Єдиний текст: привітання + інфо про канал
+        $combinedText = $helloText;
+        if ($channelText) {
+            $combinedText .= "\n\n" . $channelText;
+        }
+
+        // Inline кнопка "Підписатися"
+        $inlineKeyboard = [];
+        if ($inviteLink) {
+            $inlineKeyboard[] = [['text' => '📢 Підписатися на канал', 'url' => $inviteLink]];
+        }
+
+        $params = [
+            'chat_id'    => $chatId,
+            'text'       => $combinedText,
+            'parse_mode' => 'HTML',
+        ];
+        if (!empty($inlineKeyboard)) {
+            $params['reply_markup'] = json_encode(['inline_keyboard' => $inlineKeyboard]);
+        }
+
+        // Одне повідомлення для всіх режимів — клавіатура не використовується
+        Telegram::sendMessage($params);
     }
 
     private function sendChannelSubscriptionPrompt($chatId, ?Member $member = null): void
