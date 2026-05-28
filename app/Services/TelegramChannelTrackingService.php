@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ChannelSubscriptionEvent;
 use App\Models\Member;
 use App\Settings\TelegramSettings;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,7 @@ use Telegram\Bot\Objects\Update;
 class TelegramChannelTrackingService
 {
     public const INVITE_LINK_NAME = 'kratom_bot_tracking';
+    private const EVENT_DEDUP_MINUTES = 10;
 
     public function __construct(
         protected TelegramSettings $settings,
@@ -145,6 +147,14 @@ class TelegramChannelTrackingService
                 if (!$member->channel_joined_at) {
                     $member->channel_joined_at = now();
                 }
+                $this->recordSubscriptionEvent(
+                    $member,
+                    ChannelSubscriptionEvent::TYPE_JOIN,
+                    [
+                        'origin' => 'sync',
+                        'status' => $status,
+                    ]
+                );
                 Log::info('[ChannelTracking] syncSubscriptionStatus: юзер підписаний', [
                     'telegram_id' => $member->telegram_id,
                     'status' => $status,
@@ -152,6 +162,14 @@ class TelegramChannelTrackingService
                 ]);
             } elseif (!$isSubscribed && $wasSubscribed) {
                 $member->is_subscribed = false;
+                $this->recordSubscriptionEvent(
+                    $member,
+                    ChannelSubscriptionEvent::TYPE_LEAVE,
+                    [
+                        'origin' => 'sync',
+                        'status' => $status,
+                    ]
+                );
                 Log::info('[ChannelTracking] syncSubscriptionStatus: юзер відписаний (via getChatMember)', [
                     'telegram_id' => $member->telegram_id,
                     'status' => $status,
@@ -207,6 +225,15 @@ class TelegramChannelTrackingService
             $member->channel_join_source = Member::CHANNEL_JOIN_SOURCE_ORGANIC;
         }
 
+        $this->recordSubscriptionEvent(
+            $member,
+            ChannelSubscriptionEvent::TYPE_JOIN,
+            [
+                'origin' => 'chat_member',
+                'invite_url' => $inviteUrl,
+            ]
+        );
+
         Log::info('[ChannelTracking] Користувач підписався на канал', [
             'telegram_id' => $member->telegram_id,
             'source' => $member->channel_join_source,
@@ -219,6 +246,13 @@ class TelegramChannelTrackingService
     protected function handleChannelLeave(Member $member): void
     {
         $member->is_subscribed = false;
+        $this->recordSubscriptionEvent(
+            $member,
+            ChannelSubscriptionEvent::TYPE_LEAVE,
+            [
+                'origin' => 'chat_member',
+            ]
+        );
         Log::info('[ChannelTracking] Користувач відписався від каналу', [
             'telegram_id' => $member->telegram_id,
         ]);
@@ -317,5 +351,31 @@ class TelegramChannelTrackingService
         }
 
         return 'left';
+    }
+
+    private function recordSubscriptionEvent(Member $member, string $eventType, array $meta = []): void
+    {
+        if (!$member->telegram_id) {
+            return;
+        }
+
+        $recentDuplicate = ChannelSubscriptionEvent::query()
+            ->where('telegram_id', (string) $member->telegram_id)
+            ->where('event_type', $eventType)
+            ->where('occurred_at', '>=', now()->subMinutes(self::EVENT_DEDUP_MINUTES))
+            ->exists();
+
+        if ($recentDuplicate) {
+            return;
+        }
+
+        ChannelSubscriptionEvent::query()->create([
+            'member_id' => $member->id,
+            'telegram_id' => (string) $member->telegram_id,
+            'event_type' => $eventType,
+            'source' => $member->channel_join_source,
+            'occurred_at' => now(),
+            'meta' => $meta,
+        ]);
     }
 }

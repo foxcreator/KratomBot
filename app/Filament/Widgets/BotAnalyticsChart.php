@@ -4,12 +4,15 @@ namespace App\Filament\Widgets;
 
 use App\Services\BotAnalyticsService;
 use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class BotAnalyticsChart extends ChartWidget
 {
+    use InteractsWithPageFilters;
+
     protected static bool $isDiscovered = false;
 
-    protected static ?string $heading = 'Динаміка за останні 30 днів';
+    protected static ?string $heading = 'Динаміка підписок';
 
     protected static ?int $sort = 2;
 
@@ -17,23 +20,31 @@ class BotAnalyticsChart extends ChartWidget
 
     protected function getData(): array
     {
-        $chart = app(BotAnalyticsService::class)->chartData(30);
+        $chart = app(BotAnalyticsService::class)->chartDataByFilters($this->filters);
 
         return [
             'datasets' => [
                 [
-                    'label' => 'Нові в боті',
-                    'data' => $chart['bot'],
-                    'borderColor' => 'rgb(59, 130, 246)',
-                    'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
+                    'label' => 'Підписались',
+                    'data' => $chart['joins'],
+                    'borderColor' => 'rgb(16, 185, 129)',
+                    'backgroundColor' => 'rgba(16, 185, 129, 0.12)',
                     'fill' => true,
                     'tension' => 0.3,
                 ],
                 [
-                    'label' => 'Підписка на канал через бота',
-                    'data' => $chart['channel'],
-                    'borderColor' => 'rgb(16, 185, 129)',
-                    'backgroundColor' => 'rgba(16, 185, 129, 0.1)',
+                    'label' => 'Відписались',
+                    'data' => $chart['leaves'],
+                    'borderColor' => 'rgb(239, 68, 68)',
+                    'backgroundColor' => 'rgba(239, 68, 68, 0.12)',
+                    'fill' => true,
+                    'tension' => 0.3,
+                ],
+                [
+                    'label' => 'Чистий приріст',
+                    'data' => $chart['netGrowth'],
+                    'borderColor' => 'rgb(59, 130, 246)',
+                    'backgroundColor' => 'rgba(59, 130, 246, 0.08)',
                     'fill' => true,
                     'tension' => 0.3,
                 ],
@@ -45,6 +56,13 @@ class BotAnalyticsChart extends ChartWidget
     protected function getType(): string
     {
         return 'line';
+    }
+
+    public function getHeading(): ?string
+    {
+        $stats = app(BotAnalyticsService::class)->summaryByFilters($this->filters);
+
+        return 'Динаміка за період: ' . ($stats['range_label'] ?? '—');
     }
 
     protected function getOptions(): array

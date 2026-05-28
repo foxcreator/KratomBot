@@ -68,6 +68,11 @@ class Member extends Model
         return $this->hasMany(BroadcastRecipient::class);
     }
 
+    public function channelSubscriptionEvents()
+    {
+        return $this->hasMany(ChannelSubscriptionEvent::class);
+    }
+
     public function getCartTotalAttribute()
     {
         return $this->cartItems->sum(function ($item) {
