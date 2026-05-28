@@ -135,7 +135,7 @@ class BotAnalyticsService
     }
 
     /**
-     * @return array{labels: array<int, string>, joins: array<int, int>, leaves: array<int, int>, netGrowth: array<int, int>, peakDay: array{date: string, value: int}, dropDay: array{date: string, value: int}, firstEventDate: ?string}
+     * @return array{labels: array<int, string>, botStarts: array<int, int>, joins: array<int, int>, leaves: array<int, int>, netGrowth: array<int, int>, peakDay: array{date: string, value: int}, dropDay: array{date: string, value: int}, firstEventDate: ?string}
      */
     public function dailySubscriptionSeries(int $days = 30): array
     {
@@ -148,11 +148,12 @@ class BotAnalyticsService
     /**
      * @param Carbon $from Local timezone datetime
      * @param Carbon $to Local timezone datetime
-     * @return array{labels: array<int, string>, joins: array<int, int>, leaves: array<int, int>, netGrowth: array<int, int>, peakDay: array{date: string, value: int}, dropDay: array{date: string, value: int}, firstEventDate: ?string}
+     * @return array{labels: array<int, string>, botStarts: array<int, int>, joins: array<int, int>, leaves: array<int, int>, netGrowth: array<int, int>, peakDay: array{date: string, value: int}, dropDay: array{date: string, value: int}, firstEventDate: ?string}
      */
     private function dailySeriesBetween(Carbon $from, Carbon $to): array
     {
         $labels = [];
+        $botStarts = [];
         $joins = [];
         $leaves = [];
         $netGrowth = [];
@@ -177,6 +178,18 @@ class BotAnalyticsService
             }
         }
 
+        $startRawByDay = [];
+        $botStartsInRange = Member::query()
+            ->whereNotNull('telegram_id')
+            ->whereNotNull('bot_started_at')
+            ->whereBetween('bot_started_at', [$fromUtc, $toUtc])
+            ->get(['bot_started_at']);
+
+        foreach ($botStartsInRange as $member) {
+            $day = Carbon::parse($member->bot_started_at)->setTimezone(self::ANALYTICS_TIMEZONE)->format('Y-m-d');
+            $startRawByDay[$day] = ($startRawByDay[$day] ?? 0) + 1;
+        }
+
         $peakDay = ['date' => '—', 'value' => 0];
         $dropDay = ['date' => '—', 'value' => 0];
 
@@ -188,8 +201,10 @@ class BotAnalyticsService
             $joinCount = (int) ($daily[$dateKey]['join'] ?? 0);
             $leaveCount = (int) ($daily[$dateKey]['leave'] ?? 0);
             $delta = $joinCount - $leaveCount;
+            $botStartCount = (int) ($startRawByDay[$dateKey] ?? 0);
 
             $labels[] = $cursor->format('d.m');
+            $botStarts[] = $botStartCount;
             $joins[] = $joinCount;
             $leaves[] = $leaveCount;
             $netGrowth[] = $delta;
@@ -208,6 +223,7 @@ class BotAnalyticsService
 
         return [
             'labels' => $labels,
+            'botStarts' => $botStarts,
             'joins' => $joins,
             'leaves' => $leaves,
             'netGrowth' => $netGrowth,
@@ -232,6 +248,7 @@ class BotAnalyticsService
         foreach ($series['labels'] as $index => $label) {
             $rows[] = [
                 'date' => $label,
+                'bot_starts' => $series['botStarts'][$index] ?? 0,
                 'joins' => $series['joins'][$index] ?? 0,
                 'leaves' => $series['leaves'][$index] ?? 0,
                 'net' => $series['netGrowth'][$index] ?? 0,

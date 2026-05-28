@@ -11,6 +11,7 @@
                     <thead>
                         <tr class="border-b border-gray-200 dark:border-gray-700">
                             <th class="px-3 py-2 text-left">Дата</th>
+                            <th class="px-3 py-2 text-right">Запустили бота</th>
                             <th class="px-3 py-2 text-right">Підписались</th>
                             <th class="px-3 py-2 text-right">Відписались</th>
                             <th class="px-3 py-2 text-right">Чистий приріст</th>
@@ -20,6 +21,7 @@
                         @forelse ($rows as $row)
                             <tr class="border-b border-gray-100 dark:border-gray-800">
                                 <td class="px-3 py-2">{{ $row['date'] }}</td>
+                                <td class="px-3 py-2 text-right">{{ $row['bot_starts'] }}</td>
                                 <td class="px-3 py-2 text-right text-success-600 dark:text-success-400">{{ $row['joins'] }}</td>
                                 <td class="px-3 py-2 text-right text-danger-600 dark:text-danger-400">{{ $row['leaves'] }}</td>
                                 <td class="px-3 py-2 text-right {{ $row['net'] >= 0 ? 'text-success-600 dark:text-success-400' : 'text-danger-600 dark:text-danger-400' }}">
@@ -28,7 +30,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-3 py-8 text-center text-gray-500">
+                                <td colspan="5" class="px-3 py-8 text-center text-gray-500">
                                     За вибраний період подій не знайдено.
                                 </td>
                             </tr>
