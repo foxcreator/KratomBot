@@ -127,7 +127,7 @@ class TelegramChannelTrackingService
 
             $status = $this->extractChatMemberStatus($chatMember);
 
-            $isSubscribed = !in_array($status, ['left', 'kicked'], true);
+            $isSubscribed = in_array($status, ['member', 'administrator', 'creator', 'restricted'], true);
             $wasSubscribed = (bool) $member->is_subscribed;
 
             $member->is_subscribed = $isSubscribed;

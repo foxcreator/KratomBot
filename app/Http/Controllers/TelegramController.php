@@ -1762,7 +1762,7 @@ class TelegramController extends Controller
             ]);
             $status = $this->extractChatMemberStatus($member);
 
-            return !in_array($status, ['left', 'kicked'], true);
+            return in_array($status, ['member', 'administrator', 'creator', 'restricted'], true);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
             return false;
