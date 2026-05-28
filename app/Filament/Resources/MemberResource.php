@@ -240,6 +240,8 @@ class MemberResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn () => static::canManageMemberDeletion()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
