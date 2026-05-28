@@ -165,17 +165,11 @@ class TelegramController extends Controller
             }
             $member->last_interaction_at = now();
 
-            // Синхронізуємо підписку тільки якщо статус ще не відомий (null).
-            // Якщо is_subscribed вже true — довіряємо webhook-події (handleChatMemberUpdate),
-            // щоб уникнути перезапису правильного статусу ненадійним getChatMember.
-            // Якщо is_subscribed = false або null — синхронізуємо (юзер міг підписатись).
-            if (filled($this->channelTracking->getChannelChatId()) && $member->is_subscribed !== true) {
-                try {
-                    $this->channelTracking->syncSubscriptionStatus($member, (string) $chatId, $this->telegram);
-                } catch (\Throwable $e) {
-                    Log::warning('Не вдалося оновити is_subscribed: ' . $e->getMessage());
-                }
-            }
+            // getChatMember НЕ викликається при /start — це зменшує навантаження на API
+            // і прибирає причину Connection timed out в webhook.
+            // Статус підписки оновлюється через:
+            //   1. chat_member webhook (миттєво, при підписці/відписці)
+            //   2. telegram:sync-channel-subscriptions (раз на 15 хвилин, страховка)
 
             $member->save();
         }
