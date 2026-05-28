@@ -27,7 +27,13 @@ class TelegramWebhookService
 
     public function isSuccessful(array $result): bool
     {
-        return ($result['response']['ok'] ?? false) === true;
+        $response = $result['response'] ?? [];
+
+        if (($response['ok'] ?? false) === true) {
+            return true;
+        }
+
+        return ($response['result'] ?? false) === true;
     }
 
     /**
@@ -39,8 +45,39 @@ class TelegramWebhookService
             return $response;
         }
 
-        if (is_object($response) && method_exists($response, 'toArray')) {
-            return $response->toArray();
+        if (! is_object($response)) {
+            return ['ok' => false, 'description' => 'Unknown response'];
+        }
+
+        if (method_exists($response, 'toArray')) {
+            $data = $response->toArray();
+
+            if (is_array($data)) {
+                return $data;
+            }
+        }
+
+        if (method_exists($response, 'getDecodedBody')) {
+            $data = $response->getDecodedBody();
+
+            if (is_array($data)) {
+                return $data;
+            }
+        }
+
+        if ($response instanceof \JsonSerializable) {
+            $data = $response->jsonSerialize();
+
+            if (is_array($data)) {
+                return $data;
+            }
+        }
+
+        if (method_exists($response, '__toString')) {
+            $decoded = json_decode((string) $response, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
         }
 
         return ['ok' => false, 'description' => 'Unknown response'];

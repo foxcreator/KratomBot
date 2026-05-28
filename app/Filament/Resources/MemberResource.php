@@ -13,10 +13,14 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use App\Settings\TelegramSettings;
 
 class MemberResource extends Resource
 {
+    private const ALLOWED_DELETE_EMAIL = 'foxcreatorg@gmail.com';
+
     protected static ?string $model = Member::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
@@ -239,9 +243,27 @@ class MemberResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => static::canManageMemberDeletion()),
                 ]),
             ]);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::canManageMemberDeletion();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canManageMemberDeletion();
+    }
+
+    protected static function canManageMemberDeletion(): bool
+    {
+        $user = Auth::user();
+
+        return $user !== null && strtolower((string) $user->email) === self::ALLOWED_DELETE_EMAIL;
     }
 
     public static function getRelations(): array

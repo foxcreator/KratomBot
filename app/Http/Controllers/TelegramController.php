@@ -165,7 +165,7 @@ class TelegramController extends Controller
             }
             $member->last_interaction_at = now();
 
-            if (filled($this->settings->telegram_channel_username ?? '')) {
+            if (filled($this->channelTracking->getChannelChatId())) {
                 try {
                     $this->channelTracking->syncSubscriptionStatus($member, (string) $chatId, $this->telegram);
                 } catch (\Throwable $e) {
@@ -1750,10 +1750,14 @@ class TelegramController extends Controller
 
     private function isUserSubscribedToChannel($chatId)
     {
-        $channelUsername = $this->settings->telegram_channel_username ?? '@auraaashopp';
+        $channelChatId = $this->channelTracking->getChannelChatId();
+        if (!filled($channelChatId)) {
+            return false;
+        }
+
         try {
             $member = $this->telegram->getChatMember([
-                'chat_id' => $channelUsername,
+                'chat_id' => $channelChatId,
                 'user_id' => $chatId
             ]);
             return $member->status !== 'left';
