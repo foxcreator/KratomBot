@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Services\TelegramWebhookService;
 use Illuminate\Console\Command;
-use Telegram\Bot\Api;
 
 class SetupTelegramWebhookCommand extends Command
 {
@@ -11,19 +11,13 @@ class SetupTelegramWebhookCommand extends Command
 
     protected $description = 'Встановити webhook з підтримкою chat_member (трекінг підписок на канал)';
 
-    public function handle(): int
+    public function handle(TelegramWebhookService $webhookService): int
     {
-        $url = rtrim(config('app.url'), '/') . '/telegram/webhook';
-        $telegram = new Api(config('telegram.bots.mybot.token'));
+        $result = $webhookService->setup();
 
-        $response = $telegram->setWebhook([
-            'url' => $url,
-            'allowed_updates' => ['message', 'callback_query', 'chat_member'],
-        ]);
+        $this->info('Webhook встановлено: ' . $result['url']);
+        $this->line(json_encode($result['response'], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
-        $this->info('Webhook встановлено: ' . $url);
-        $this->line(json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-
-        return self::SUCCESS;
+        return $webhookService->isSuccessful($result) ? self::SUCCESS : self::FAILURE;
     }
 }

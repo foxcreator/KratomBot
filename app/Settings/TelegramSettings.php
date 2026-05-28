@@ -15,6 +15,8 @@ class TelegramSettings extends Settings
     public int $telegram_channel_discount = 0;
     public ?string $discount_info = '';
     public ?string $telegram_channel_username = '';
+    /** Для приватного каналу без username, приклад: -1001234567890 */
+    public ?string $telegram_channel_chat_id = null;
 
     /** Invite link, створений ботом для відстеження підписок з бота. */
     public ?string $bot_channel_invite_link = null;

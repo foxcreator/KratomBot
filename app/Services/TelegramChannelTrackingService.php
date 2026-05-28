@@ -24,7 +24,7 @@ class TelegramChannelTrackingService
 
         $channelId = $this->getChannelChatId();
         if (!$channelId) {
-            Log::warning('[ChannelTracking] telegram_channel_username не налаштовано');
+            Log::warning('[ChannelTracking] Не вказано telegram_channel_chat_id або telegram_channel_username');
 
             return null;
         }
@@ -155,6 +155,11 @@ class TelegramChannelTrackingService
 
     public function getChannelChatId(): ?string
     {
+        $chatId = trim((string) ($this->settings->telegram_channel_chat_id ?? ''));
+        if ($chatId !== '') {
+            return $chatId;
+        }
+
         $username = trim((string) ($this->settings->telegram_channel_username ?? ''));
         if ($username === '') {
             return null;

@@ -9,6 +9,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use App\Services\TelegramChannelTrackingService;
+use App\Services\TelegramWebhookService;
 use Filament\Actions\Action;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -100,15 +101,29 @@ class ManageTelegram extends SettingsPage
 
                         TextInput::make('telegram_channel_username')
                             ->label('Username Telegram-каналу (наприклад, @auraaashopp)')
+                            ->helperText('Для публічного каналу. Для приватного можна залишити порожнім і вказати ID каналу нижче.')
+                            ->maxLength(255)
+                            ->nullable(),
+
+                        TextInput::make('telegram_channel_chat_id')
+                            ->label('ID Telegram-каналу (для приватного)')
+                            ->helperText('Приклад: -1001234567890. Якщо вказаний ID, username не обовʼязковий.')
                             ->maxLength(255)
                             ->nullable(),
 
                         TextInput::make('bot_channel_invite_link')
                             ->label('Invite link для трекінгу підписок')
-                            ->helperText('Генерується автоматично. Користувачі мають підписуватись саме по цьому посиланню з бота.')
+                            ->helperText('Генерується кнопкою «Створити invite link». Користувачі мають підписуватись саме по цьому посиланню з бота.')
                             ->disabled()
                             ->dehydrated(false)
                             ->default(fn () => app(TelegramSettings::class)->bot_channel_invite_link),
+
+                        TextInput::make('webhook_url')
+                            ->label('URL webhook')
+                            ->helperText('Оновлюється кнопкою «Оновити webhook». Має збігатися з APP_URL на сервері.')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->default(fn () => rtrim((string) config('app.url'), '/') . '/telegram/webhook'),
                     ])
                     ->collapsible(),
             ]);
@@ -121,6 +136,7 @@ class ManageTelegram extends SettingsPage
                 ->label('Створити invite link')
                 ->icon('heroicon-o-link')
                 ->requiresConfirmation()
+                ->modalDescription('Бот має бути адміном каналу з правом запрошувати користувачів.')
                 ->action(function () {
                     $link = app(TelegramChannelTrackingService::class)->ensureBotInviteLink();
                     if ($link) {
@@ -132,7 +148,31 @@ class ManageTelegram extends SettingsPage
                     } else {
                         Notification::make()
                             ->title('Помилка')
-                            ->body('Перевірте, що бот — адмін каналу з правом запрошувати. Також вкажіть username каналу.')
+                            ->body('Перевірте, що бот — адмін каналу з правом запрошувати. Вкажіть username каналу або ID каналу.')
+                            ->danger()
+                            ->send();
+                    }
+                }),
+            Action::make('setupWebhook')
+                ->label('Оновити webhook')
+                ->icon('heroicon-o-arrow-path')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalDescription('Встановить webhook на APP_URL/telegram/webhook з підтримкою message, callback_query та chat_member (трекінг підписок на канал).')
+                ->action(function () {
+                    $result = app(TelegramWebhookService::class)->setup();
+                    $description = $result['response']['description'] ?? json_encode($result['response'], JSON_UNESCAPED_UNICODE);
+
+                    if (app(TelegramWebhookService::class)->isSuccessful($result)) {
+                        Notification::make()
+                            ->title('Webhook оновлено')
+                            ->body($result['url'] . "\n" . $description)
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Помилка webhook')
+                            ->body($result['url'] . "\n" . $description)
                             ->danger()
                             ->send();
                     }

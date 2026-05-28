@@ -15,7 +15,7 @@ class EnsureBotChannelInviteLinkCommand extends Command
     {
         $channel = $tracking->getChannelChatId();
         if (!$channel) {
-            $this->error('Спочатку вкажіть telegram_channel_username в налаштуваннях бота (/admin → Налаштування бота).');
+            $this->error('Спочатку вкажіть telegram_channel_username або telegram_channel_chat_id в налаштуваннях бота (/admin → Налаштування бота).');
 
             return self::FAILURE;
         }
