@@ -30,6 +30,15 @@ class BotAnalyticsService
             ->count();
     }
 
+    public function channelUnsubscribedCount(): int
+    {
+        return Member::query()
+            ->whereNotNull('telegram_id')
+            ->whereNotNull('channel_joined_at')
+            ->where('is_subscribed', false)
+            ->count();
+    }
+
     public function conversionRate(): float
     {
         $botUsers = $this->botSubscribersCount();
@@ -120,6 +129,7 @@ class BotAnalyticsService
             'bot_subscribers' => $this->botSubscribersCount(),
             'channel_subscribers' => $this->channelSubscribersCount(),
             'channel_joins_via_bot' => $this->channelJoinsViaBotCount(),
+            'channel_unsubscribed' => $this->channelUnsubscribedCount(),
             'conversion_rate' => $this->conversionRate(),
             'new_bot_subscribers_30d' => $this->newBotSubscribersCount(30),
             'new_channel_joins_via_bot_30d' => $this->newChannelJoinsViaBotCount(30),

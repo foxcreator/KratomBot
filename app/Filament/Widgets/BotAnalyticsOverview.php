@@ -41,6 +41,11 @@ class BotAnalyticsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-link')
                 ->color('primary'),
 
+            Stat::make('Відписалися', number_format($stats['channel_unsubscribed']))
+                ->description('Були підписані, зараз ні')
+                ->descriptionIcon('heroicon-m-user-minus')
+                ->color('danger'),
+
             Stat::make('Конверсія', $stats['conversion_rate'] . '%')
                 ->description('Канал через бота / підписники бота')
                 ->descriptionIcon('heroicon-m-arrow-trending-up')

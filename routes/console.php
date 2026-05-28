@@ -8,6 +8,6 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote')->hourly();
 
-Schedule::command('telegram:sync-channel-subscriptions --limit=300')
+Schedule::command('telegram:sync-channel-subscriptions')
     ->everyMinute()
     ->withoutOverlapping();
