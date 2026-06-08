@@ -14,11 +14,13 @@ class Broadcast extends Model
     public const AUDIENCE_ALL = 'all';
     public const AUDIENCE_SUBSCRIBED = 'subscribed';
     public const AUDIENCE_UNSUBSCRIBED = 'unsubscribed';
+    public const AUDIENCE_SPECIFIC = 'specific';
 
     public const AUDIENCES = [
         self::AUDIENCE_ALL => 'Всі користувачі',
         self::AUDIENCE_SUBSCRIBED => 'З підпискою на канал',
         self::AUDIENCE_UNSUBSCRIBED => 'Без підписки на канал',
+        self::AUDIENCE_SPECIFIC => 'Конкретні користувачі',
     ];
 
     public const STATUS_PENDING = 'pending';

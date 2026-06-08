@@ -80,6 +80,44 @@ class BroadcastResource extends Resource
                     ->maxSize(5120)
                     ->helperText('Якщо завантажене — буде надіслано фото з підписом. При тексті понад 1024 символи фото надсилається окремо.'),
 
+                Select::make('specific_member_ids')
+                    ->label('Відправити тільки')
+                    ->helperText('Оберіть конкретних користувачів для цієї розсилки.')
+                    ->multiple()
+                    ->searchable()
+                    ->preload(false)
+                    ->live()
+                    ->visible(fn (Get $get) => $get('audience') === Broadcast::AUDIENCE_SPECIFIC)
+                    ->required(fn (Get $get) => $get('audience') === Broadcast::AUDIENCE_SPECIFIC)
+                    ->getSearchResultsUsing(function (string $search): array {
+                        return Member::query()
+                            ->whereNotNull('telegram_id')
+                            ->where('telegram_id', '!=', '')
+                            ->where(function ($q) use ($search) {
+                                $like = '%' . $search . '%';
+                                $q->where('full_name', 'like', $like)
+                                  ->orWhere('username', 'like', $like)
+                                  ->orWhere('phone', 'like', $like)
+                                  ->orWhere('telegram_id', 'like', $like);
+                            })
+                            ->orderBy('full_name')
+                            ->limit(50)
+                            ->get(['id', 'full_name', 'username', 'telegram_id'])
+                            ->mapWithKeys(fn (Member $m) => [
+                                $m->id => static::memberOptionLabel($m),
+                            ])
+                            ->toArray();
+                    })
+                    ->getOptionLabelsUsing(function (array $values): array {
+                        return Member::query()
+                            ->whereIn('id', $values)
+                            ->get(['id', 'full_name', 'username', 'telegram_id'])
+                            ->mapWithKeys(fn (Member $m) => [
+                                $m->id => static::memberOptionLabel($m),
+                            ])
+                            ->toArray();
+                    }),
+
                 Select::make('excluded_member_ids')
                     ->label('Виключити з цієї розсилки')
                     ->helperText('Виберіть користувачів, яким НЕ потрібно надсилати саме цю розсилку. Це разове виключення, на майбутні розсилки воно не впливає.')
@@ -87,6 +125,7 @@ class BroadcastResource extends Resource
                     ->searchable()
                     ->preload(false)
                     ->live()
+                    ->visible(fn (Get $get) => $get('audience') !== Broadcast::AUDIENCE_SPECIFIC)
                     ->getSearchResultsUsing(function (string $search, Get $get): array {
                         $audience = $get('audience') ?? Broadcast::AUDIENCE_ALL;
 
@@ -122,6 +161,14 @@ class BroadcastResource extends Resource
                     ->content(function (Get $get): HtmlString {
                         $audience = $get('audience') ?? Broadcast::AUDIENCE_ALL;
                         $service = app(BroadcastService::class);
+                        $specificIds = array_map('intval', (array) ($get('specific_member_ids') ?? []));
+
+                        if ($audience === Broadcast::AUDIENCE_SPECIFIC) {
+                            $count = count($specificIds);
+                            return new HtmlString(
+                                'Буде відправлено: <span style="font-weight:600">' . $count . '</span> користувач(ів).'
+                            );
+                        }
 
                         $total = $service->audienceQuery($audience)->count();
                         $excluded = (array) ($get('excluded_member_ids') ?? []);

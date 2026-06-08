@@ -28,7 +28,9 @@ class BroadcastService
                 'created_by_user_id' => $userId,
             ]);
 
-            $members = $this->resolveAudience($broadcast->audience)
+            $specificIds = array_map('intval', $data['specific_member_ids'] ?? []);
+
+            $members = $this->resolveAudience($broadcast->audience, $specificIds)
                 ->when(!empty($excludedIds), fn ($q) => $q->whereNotIn('id', $excludedIds))
                 ->get(['id', 'telegram_id']);
 
@@ -109,18 +111,20 @@ class BroadcastService
         });
     }
 
-    public function audienceQuery(string $audience): Builder
+    public function audienceQuery(string $audience, array $specificIds = []): Builder
     {
-        return $this->resolveAudience($audience);
+        return $this->resolveAudience($audience, $specificIds);
     }
 
-    protected function resolveAudience(string $audience): Builder
+    protected function resolveAudience(string $audience, array $specificIds = []): Builder
     {
         $query = Member::query()
             ->whereNotNull('telegram_id')
             ->where('telegram_id', '!=', '');
 
-        if ($audience === Broadcast::AUDIENCE_SUBSCRIBED) {
+        if ($audience === Broadcast::AUDIENCE_SPECIFIC) {
+            $query->whereIn('id', $specificIds);
+        } elseif ($audience === Broadcast::AUDIENCE_SUBSCRIBED) {
             $query->where('is_subscribed', true);
         } elseif ($audience === Broadcast::AUDIENCE_UNSUBSCRIBED) {
             $query->where(function (Builder $q) {

@@ -35,14 +35,20 @@ class CreateBroadcast extends CreateRecord
 
         $audience = $data['audience'] ?? Broadcast::AUDIENCE_ALL;
         $excluded = $data['excluded_member_ids'] ?? [];
-        $recipientsCount = $service->audienceQuery($audience)
+        $specificIds = array_map('intval', $data['specific_member_ids'] ?? []);
+
+        $recipientsCount = $service->audienceQuery($audience, $specificIds)
             ->when(!empty($excluded), fn ($q) => $q->whereNotIn('id', $excluded))
             ->count();
 
         if ($recipientsCount === 0) {
             Notification::make()
                 ->title('Немає одержувачів')
-                ->body('Після виключень не залишилось користувачів для відправки. Розсилка не створена.')
+                ->body(
+                    $audience === Broadcast::AUDIENCE_SPECIFIC
+                        ? 'Не обрано жодного користувача. Розсилка не створена.'
+                        : 'Після виключень не залишилось користувачів для відправки. Розсилка не створена.'
+                )
                 ->danger()
                 ->send();
 

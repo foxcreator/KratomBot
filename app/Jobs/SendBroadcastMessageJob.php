@@ -76,6 +76,14 @@ class SendBroadcastMessageJob implements ShouldQueue
             $hasImage = !empty($broadcast->image_path)
                 && Storage::disk('public')->exists($broadcast->image_path);
 
+            Log::warning('[Broadcast] image check', [
+                'broadcast_id' => $broadcast->id,
+                'image_path' => $broadcast->image_path,
+                'exists' => $broadcast->image_path ? Storage::disk('public')->exists($broadcast->image_path) : null,
+                'disk_root' => Storage::disk('public')->path(''),
+                'filesystem_disk' => config('filesystems.default'),
+            ]);
+
             if ($hasImage) {
                 $absolutePath = Storage::disk('public')->path($broadcast->image_path);
                 $messageLength = mb_strlen($message);
