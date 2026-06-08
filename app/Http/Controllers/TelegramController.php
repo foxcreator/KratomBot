@@ -50,7 +50,7 @@ class TelegramController extends Controller
         $url = config('app.url').'/telegram/webhook';
         $response = $this->telegram->setWebhook([
             'url' => $url,
-            'allowed_updates' => ['message', 'callback_query', 'chat_member'],
+            'allowed_updates' => ['message', 'callback_query', 'chat_member', 'my_chat_member'],
         ]);
 
         return response()->json($response);
@@ -60,6 +60,12 @@ class TelegramController extends Controller
         try {
             $update = Telegram::getWebhookUpdates();
             \Illuminate\Support\Facades\Log::info('Webhook update received:', is_object($update) && method_exists($update, 'toArray') ? $update->toArray() : (array)$update);
+
+            if ($update->isType('my_chat_member')) {
+                $this->handleMyChatMember($update);
+
+                return;
+            }
 
             if ($update->isType('chat_member')) {
                 $this->channelTracking->handleChatMemberUpdate($update);
@@ -85,69 +91,72 @@ class TelegramController extends Controller
                 $text = $update->getMessage()->getText();
                 $messageId = $update->getMessage()->getMessageId();
 
-                try {
-                    $member = \App\Models\Member::query()->firstOrNew(['telegram_id' => $chatId]);
-                    $wasNew = !$member->exists;
-
-                    $member->telegram_id = (string) $chatId;
-                    if (!is_null($username)) {
-                        $member->username = $username;
-                    }
-                    if (empty($member->getAttributes()['full_name'] ?? null)) {
-                        $member->full_name = $username ?: ('id' . $chatId);
-                    }
-                    $member->last_interaction_at = now();
-                    $member->save();
-
-                    Log::error('[TG] member upserted', [
-                        'wasNew' => $wasNew,
-                        'id' => $member->id,
-                        'telegram_id' => $member->telegram_id,
-                        'username' => $member->username,
-                    ]);
-                } catch (\Throwable $e) {
-                    Log::error('[TG] member upsert failed: ' . $e->getMessage(), [
-                        'chat_id' => $chatId,
-                        'username' => $username,
-                    ]);
-                    return;
-                }
-
-                if ($messageId) {
-                    try {
-                        $this->saveUserMessageId($member, $messageId);
-                    } catch (\Throwable $e) {
-                        Log::warning('[TG] saveUserMessageId failed: ' . $e->getMessage());
-                    }
-                }
-
-                // --- Тимчасово вимкнено (продажі неактивні) ---
-                // Обробка фото (квитанція оплати) вимкнена.
-                // if ($update->getMessage()->has('photo')) {
-                //     $photoSizes = $update->getMessage()->get('photo');
-                //     if ($photoSizes instanceof \Illuminate\Support\Collection) {
-                //         $photoSizes = $photoSizes->toArray();
-                //     }
-                //     if (is_array($photoSizes) && count($photoSizes) > 0) {
-                //         $largestPhoto = $photoSizes[array_key_last($photoSizes)];
-                //         $this->handlePhoto($chatId, $largestPhoto);
-                //         return;
-                //     }
-                // }
-                // --- Кінець вимкненого блоку ---
                 if ($update->getMessage()->has('photo')) {
                     return;
                 }
 
                 if ($text && str_starts_with($text, '/start')) {
+                    // Створюємо або оновлюємо member тільки при /start
+                    try {
+                        $member = \App\Models\Member::query()->firstOrNew(['telegram_id' => $chatId]);
+
+                        $member->telegram_id = (string) $chatId;
+                        if (!is_null($username)) {
+                            $member->username = $username;
+                        }
+                        if (empty($member->getAttributes()['full_name'] ?? null)) {
+                            $member->full_name = $username ?: ('id' . $chatId);
+                        }
+                        if (!$member->bot_started_at) {
+                            $member->bot_started_at = now();
+                        }
+                        $member->last_interaction_at = now();
+                        $member->save();
+                    } catch (\Throwable $e) {
+                        Log::error('[TG] member upsert failed: ' . $e->getMessage(), [
+                            'chat_id' => $chatId,
+                            'username' => $username,
+                        ]);
+                        return;
+                    }
+
+                    if ($messageId) {
+                        try {
+                            $this->saveUserMessageId($member, $messageId);
+                        } catch (\Throwable $e) {
+                            Log::warning('[TG] saveUserMessageId failed: ' . $e->getMessage());
+                        }
+                    }
+
                     $startPayload = $this->parseStartPayload($text);
                     if ($startPayload === 'channel' && $member) {
                         $this->channelTracking->markChannelLinkClicked($member);
                     }
                     $this->sendWelcome($chatId, $username, $member);
-                } elseif ($this->settings->start_only_mode) {
-                    return;
                 } else {
+                    // Для інших повідомлень — тільки оновлюємо існуючого member'а
+                    $member = Member::where('telegram_id', $chatId)->first();
+
+                    if ($member) {
+                        $member->last_interaction_at = now();
+                        if (!is_null($username)) {
+                            $member->username = $username;
+                        }
+                        $member->save();
+
+                        if ($messageId) {
+                            try {
+                                $this->saveUserMessageId($member, $messageId);
+                            } catch (\Throwable $e) {
+                                Log::warning('[TG] saveUserMessageId failed: ' . $e->getMessage());
+                            }
+                        }
+                    }
+
+                    if ($this->settings->start_only_mode) {
+                        return;
+                    }
+
                     $this->handleText($chatId, $text);
                 }
             }
@@ -159,13 +168,6 @@ class TelegramController extends Controller
     private function sendWelcome($chatId, $username, ?Member $member = null)
     {
         $member ??= Member::where('telegram_id', $chatId)->first();
-        if ($member) {
-            if (!$member->bot_started_at) {
-                $member->bot_started_at = now();
-            }
-            $member->last_interaction_at = now();
-            $member->save();
-        }
 
         $rawText = !empty($this->settings->hello_message)
             ? $this->settings->hello_message
@@ -2069,5 +2071,43 @@ class TelegramController extends Controller
             'text' => "Введіть номер відділення Нової Пошти:",
             'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
         ]);
+    }
+
+    private function handleMyChatMember($update): void
+    {
+        try {
+            $chatMemberUpdate = $update->getMyChatMember();
+            $raw = method_exists($chatMemberUpdate, 'toArray') ? $chatMemberUpdate->toArray() : [];
+
+            $telegramId = (string) ($raw['from']['id'] ?? '');
+            if (!$telegramId) {
+                return;
+            }
+
+            $newStatus = $raw['new_chat_member']['status'] ?? null;
+
+            $member = Member::withTrashed()->where('telegram_id', $telegramId)->first();
+            if (!$member) {
+                return;
+            }
+
+            if ($newStatus === 'kicked') {
+                // Юзер заблокував бота
+                $member->bot_blocked_at = now();
+                $member->save();
+                $member->delete(); // soft delete
+
+                Log::info('[MyChatMember] Юзер заблокував бота', ['telegram_id' => $telegramId]);
+            } elseif ($newStatus === 'member') {
+                // Юзер розблокував бота
+                $member->restore();
+                $member->bot_blocked_at = null;
+                $member->save();
+
+                Log::info('[MyChatMember] Юзер розблокував бота', ['telegram_id' => $telegramId]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('[MyChatMember] Помилка обробки: ' . $e->getMessage());
+        }
     }
 }

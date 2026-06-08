@@ -120,7 +120,8 @@ class BroadcastService
     {
         $query = Member::query()
             ->whereNotNull('telegram_id')
-            ->where('telegram_id', '!=', '');
+            ->where('telegram_id', '!=', '')
+            ->whereNotNull('bot_started_at');
 
         if ($audience === Broadcast::AUDIENCE_SPECIFIC) {
             $query->whereIn('id', $specificIds);

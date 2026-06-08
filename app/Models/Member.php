@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Arr;
 
 class Member extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     public const CHANNEL_JOIN_SOURCE_BOT = 'bot';
     public const CHANNEL_JOIN_SOURCE_ORGANIC = 'organic';
@@ -19,6 +20,7 @@ class Member extends Model
         'telegram_id',
         'is_subscribed',
         'bot_started_at',
+        'bot_blocked_at',
         'last_interaction_at',
         'channel_joined_at',
         'channel_join_source',
@@ -38,6 +40,7 @@ class Member extends Model
         'ui_state' => 'array',
         'is_subscribed' => 'boolean',
         'bot_started_at' => 'datetime',
+        'bot_blocked_at' => 'datetime',
         'last_interaction_at' => 'datetime',
         'channel_joined_at' => 'datetime',
         'channel_link_clicked_at' => 'datetime',

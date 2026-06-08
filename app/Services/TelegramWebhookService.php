@@ -16,7 +16,7 @@ class TelegramWebhookService
 
         $response = $telegram->setWebhook([
             'url' => $url,
-            'allowed_updates' => ['message', 'callback_query', 'chat_member'],
+            'allowed_updates' => ['message', 'callback_query', 'chat_member', 'my_chat_member'],
         ]);
 
         return [

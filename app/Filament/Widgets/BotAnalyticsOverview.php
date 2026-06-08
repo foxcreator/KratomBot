@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\Member;
 use App\Services\BotAnalyticsService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -27,8 +28,14 @@ class BotAnalyticsOverview extends BaseWidget
     protected function getStats(): array
     {
         $stats = app(BotAnalyticsService::class)->summaryByFilters($this->filters);
+        $blockedCount = Member::onlyTrashed()->whereNotNull('bot_blocked_at')->count();
 
         return [
+            Stat::make('Заблокували бота', number_format($blockedCount))
+                ->description('Видалили або заблокували бота')
+                ->descriptionIcon('heroicon-m-no-symbol')
+                ->color('danger'),
+
             Stat::make('Підписники бота', number_format($stats['bot_subscribers']))
                 ->description('Користувачі, що писали боту')
                 ->descriptionIcon('heroicon-m-chat-bubble-left-right')

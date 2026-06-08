@@ -96,13 +96,14 @@ class TelegramChannelTrackingService
             return;
         }
 
-        $member = Member::query()->firstOrNew(['telegram_id' => $telegramId]);
-        if (!$member->exists) {
-            $rawUser           = $raw['new_chat_member']['user'] ?? [];
-            $member->username  = $rawUser['username'] ?? null;
-            $firstName         = $rawUser['first_name'] ?? '';
-            $lastName          = $rawUser['last_name'] ?? '';
-            $member->full_name = trim($firstName . ' ' . $lastName) ?: ('id' . $telegramId);
+        // Оновлюємо тільки тих, хто вже стартував бота. Нових не створюємо —
+        // вони потраплять в базу тільки після /start в боті.
+        $member = Member::where('telegram_id', $telegramId)->first();
+        if (!$member) {
+            Log::info('[ChannelTracking] Пропускаємо — member не стартував бота', [
+                'telegram_id' => $telegramId,
+            ]);
+            return;
         }
 
         if ($this->isJoinedStatus($newStatus) && $this->isLeftStatus($oldStatus)) {
